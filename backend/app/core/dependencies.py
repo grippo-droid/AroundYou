@@ -52,6 +52,12 @@ async def get_current_user(request: Request) -> Optional[UserModel]:
     
     return UserModel(**user_doc)
 
+async def get_optional_user(request: Request) -> Optional[UserModel]:
+    try:
+        return await get_current_user(request)
+    except HTTPException:
+        return None
+
 async def get_current_active_user(current_user: UserModel = Depends(get_current_user)) -> UserModel:
     # Add logic here if you want to check for suspended users, etc.
     return current_user

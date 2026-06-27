@@ -3,6 +3,7 @@ import { apiClient } from "@/lib/api_client";
 import type { AxiosError } from "axios";
 import { User } from "@/types/api";
 import { toast } from "sonner";
+import { getFollowingList } from "@/services/api";
 
 interface LoginCredentials {
     phone: string;
@@ -25,6 +26,8 @@ interface ApiErrorData {
 interface AuthContextType {
     user: User | null;
     loading: boolean;
+    followingIds: Set<string>;
+    setFollowingIds: React.Dispatch<React.SetStateAction<Set<string>>>;
     login: (credentials: LoginCredentials) => Promise<void>;
     register: (data: RegisterData) => Promise<void>;
     logout: () => Promise<void>;
@@ -39,18 +42,34 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+    const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
 
-    // Check if user is logged in (session check)
+    const loadFollowing = async (userData: User) => {
+        // Prefer the list already embedded in the user doc to save a round-trip
+        const ids = userData.followed_businesses ?? [];
+        if (ids.length > 0) {
+            setFollowingIds(new Set(ids));
+        } else {
+            try {
+                const list = await getFollowingList();
+                setFollowingIds(new Set(list));
+            } catch {
+                // silently ignore — non-critical
+            }
+        }
+    };
+
     const checkUser = async () => {
         try {
             const { data } = await apiClient.get("/auth/me");
             if (data.success) {
                 setUser(data.data);
+                await loadFollowing(data.data);
             }
-        } catch (error) {
-            // Not logged in or session expired
+        } catch {
             localStorage.removeItem("access_token");
             setUser(null);
+            setFollowingIds(new Set());
         } finally {
             setLoading(false);
         }
@@ -73,6 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 toast.success("Welcome back!");
                 const me = await apiClient.get("/auth/me");
                 setUser(me.data.data);
+                await loadFollowing(me.data.data);
             }
         } catch (err) {
             const error = err as AxiosError<ApiErrorData>;
@@ -99,6 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             await apiClient.post("/auth/logout");
             localStorage.removeItem("access_token");
             setUser(null);
+            setFollowingIds(new Set());
             toast.success("Logged out");
         } catch (error) {
             console.error("Logout failed", error);
@@ -124,6 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 toast.success("Welcome back!");
                 const me = await apiClient.get("/auth/me");
                 setUser(me.data.data);
+                await loadFollowing(me.data.data);
             }
         } catch (err) {
             const error = err as AxiosError<ApiErrorData>;
@@ -143,6 +165,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 toast.success("Account created! Welcome to NearMe!");
                 const me = await apiClient.get("/auth/me");
                 setUser(me.data.data);
+                await loadFollowing(me.data.data);
             }
         } catch (err) {
             const error = err as AxiosError<ApiErrorData>;
@@ -152,7 +175,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser, sendOtp, loginWithOtp, registerWithOtp }}>
+        <AuthContext.Provider value={{
+            user, loading, followingIds, setFollowingIds,
+            login, register, logout, refreshUser,
+            sendOtp, loginWithOtp, registerWithOtp,
+        }}>
             {children}
         </AuthContext.Provider>
     );

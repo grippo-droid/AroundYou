@@ -34,6 +34,7 @@ class UserResponse(UserBase):
     is_verified: bool = False
     followers: list[str] = []
     following: list[str] = []
+    followed_businesses: list[str] = []
     followers_count: int = 0
     following_count: int = 0
     businesses_count: int = 0

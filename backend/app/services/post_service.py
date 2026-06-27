@@ -31,3 +31,12 @@ class PostService:
         cursor = db.posts.find().sort("created_at", -1)
         posts = await cursor.to_list(length=100)
         return [PostModel(**p) for p in posts]
+
+    @staticmethod
+    async def get_following_posts(business_ids: List[str]) -> List[PostModel]:
+        if not business_ids:
+            return []
+        db = get_database()
+        cursor = db.posts.find({"business_id": {"$in": business_ids}}).sort("created_at", -1)
+        posts = await cursor.to_list(length=100)
+        return [PostModel(**p) for p in posts]

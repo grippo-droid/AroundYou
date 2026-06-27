@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, Link } from "react-router-dom";
-import { getBusinessById, getReviewsByBusiness, getBusinessJobs, createReview, fetchBusinessDeals, submitApplication, getMyAppliedJobIds } from "@/services/api";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { getBusinessById, getReviewsByBusiness, getBusinessJobs, createReview, fetchBusinessDeals, submitApplication, getMyAppliedJobIds, followBusiness } from "@/services/api";
 import type { ApplicationCreateData } from "@/services/api";
 import { Phone, MessageCircle, Navigation, CheckCircle, MapPin, Heart, Flag, Clock, Star, Briefcase, Bookmark, Tag, CalendarDays, Loader2, Send } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
@@ -27,13 +27,16 @@ import { toast } from "sonner";
 
 const BusinessProfile = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const geo = useGeolocation();
-  const { user } = useAuth();
+  const { user, followingIds, setFollowingIds } = useAuth();
   const [business, setBusiness] = useState<Business | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [businessJobs, setBusinessJobs] = useState<Job[]>([]);
   const [businessDeals, setBusinessDeals] = useState<Deal[]>([]);
-  const [following, setFollowing] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followerCount, setFollowerCount] = useState(0);
+  const [followLoading, setFollowLoading] = useState(false);
   const { isBookmarked, toggle } = useBookmarks();
   const [activeImage, setActiveImage] = useState(0);
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -50,7 +53,12 @@ const BusinessProfile = () => {
 
   useEffect(() => {
     if (!id) return;
-    getBusinessById(id).then((b) => { if (b) setBusiness(b); });
+    getBusinessById(id).then((b) => {
+      if (b) {
+        setBusiness(b);
+        setFollowerCount(b.followers ?? 0);
+      }
+    });
     getReviewsByBusiness(id).then(setReviews).catch(() => {});
     getBusinessJobs(id).then(setBusinessJobs).catch(() => {});
     fetchBusinessDeals(id).then(setBusinessDeals).catch((e) => console.error("Deals fetch failed:", e));
@@ -58,6 +66,31 @@ const BusinessProfile = () => {
       getMyAppliedJobIds().then((ids) => setAppliedJobIds(new Set(ids))).catch(() => {});
     }
   }, [id, user]);
+
+  // Sync follow state from AuthContext whenever followingIds or id changes
+  useEffect(() => {
+    if (id) setIsFollowing(followingIds.has(id));
+  }, [id, followingIds]);
+
+  const handleFollow = async () => {
+    if (!user) { navigate("/login"); return; }
+    setFollowLoading(true);
+    try {
+      const result = await followBusiness(id!);
+      setIsFollowing(result.following);
+      setFollowerCount(result.follower_count);
+      setFollowingIds((prev) => {
+        const next = new Set(prev);
+        if (result.following) next.add(id!); else next.delete(id!);
+        return next;
+      });
+      toast.success(result.following ? "Following!" : "Unfollowed");
+    } catch {
+      toast.error("Failed to update follow");
+    } finally {
+      setFollowLoading(false);
+    }
+  };
 
   const handleSubmitReview = async () => {
     if (!id || reviewRating === 0 || reviewText.trim().length < 10) return;
@@ -201,7 +234,7 @@ const BusinessProfile = () => {
             </div>
             <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
               <span className="flex items-center gap-1"><Star className="h-3.5 w-3.5 text-amber-500" />{business.rating} ({business.reviewCount})</span>
-              <span>{business.followers} followers</span>
+              <span>{followerCount} followers</span>
               <span>
                 {geo.lat !== null && geo.lng !== null && business.location?.lat
                   ? formatDistance(haversineDistance(geo.lat, geo.lng, business.location.lat, business.location.lng))
@@ -228,11 +261,12 @@ const BusinessProfile = () => {
         {/* Actions */}
         <div className="flex gap-2 mb-8">
           <Button
-            variant={following ? "secondary" : "default"}
-            onClick={() => setFollowing(!following)}
+            variant={isFollowing ? "secondary" : "default"}
+            onClick={handleFollow}
+            disabled={followLoading}
           >
-            <Heart className={`h-4 w-4 mr-1 ${following ? "fill-current" : ""}`} />
-            {following ? "Following" : "Follow"}
+            <Heart className={`h-4 w-4 mr-1 ${isFollowing ? "fill-current" : ""}`} />
+            {isFollowing ? "Following" : "Follow"}
           </Button>
           <Button
             variant="outline"

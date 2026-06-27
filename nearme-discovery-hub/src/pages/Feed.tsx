@@ -1,23 +1,41 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Heart, MessageCircle, Bookmark } from "lucide-react";
+import { Heart, MessageCircle, Bookmark, Users, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getAllPosts } from "@/services/api";
+import { getFeedPosts } from "@/services/api";
 import { posts as mockPosts } from "@/services/mockData";
+import { useAuth } from "@/context/AuthContext";
 import type { Post } from "@/types";
 
+type FeedMode = "all" | "following";
+
 const Feed = () => {
+  const { user, followingIds } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [feedMode, setFeedMode] = useState<FeedMode>("all");
   const [liked, setLiked] = useState<Record<string, boolean>>({});
 
+  const loadPosts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const fetched = await getFeedPosts(feedMode === "following");
+      if (feedMode === "all") {
+        setPosts(fetched.length > 0 ? fetched : mockPosts);
+      } else {
+        setPosts(fetched);
+      }
+    } catch {
+      setPosts(feedMode === "all" ? mockPosts : []);
+    } finally {
+      setLoading(false);
+    }
+  }, [feedMode]);
+
   useEffect(() => {
-    getAllPosts()
-      .then((apiPosts) => setPosts(apiPosts.length > 0 ? apiPosts : mockPosts))
-      .catch(() => setPosts(mockPosts))
-      .finally(() => setLoading(false));
-  }, []);
+    loadPosts();
+  }, [loadPosts]);
 
   // Sync liked state once posts load
   useEffect(() => {
@@ -58,33 +76,81 @@ const Feed = () => {
     );
   }
 
-  if (posts.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 text-center text-muted-foreground px-4">
-        <p className="text-4xl mb-4">📰</p>
-        <p className="font-semibold text-lg text-foreground">Nothing to see here yet</p>
-        <p className="text-sm mt-1 max-w-xs">
-          Follow some businesses on the Explore page to see their latest posts here.
-        </p>
-        <Button asChild className="mt-6">
-          <Link to="/explore">Explore Businesses</Link>
-        </Button>
-      </div>
-    );
-  }
+  const showFollowingEmpty = feedMode === "following" && posts.length === 0;
+  const showAllEmpty = feedMode === "all" && posts.length === 0;
 
   return (
     <main className="container py-8">
       <div className="max-w-xl mx-auto space-y-6">
-        <div className="mb-2">
-          <h1 className="font-display text-2xl font-bold">Your Feed</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Latest updates from businesses you follow
-          </p>
+
+        {/* Header + toggle */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-display text-2xl font-bold">Feed</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {feedMode === "following"
+                ? "Posts from businesses you follow"
+                : "Latest from all businesses"}
+            </p>
+          </div>
+
+          {user && (
+            <div className="flex rounded-lg border p-0.5 gap-0.5">
+              <Button
+                variant={feedMode === "all" ? "default" : "ghost"}
+                size="sm"
+                className="h-7 px-3 text-xs gap-1.5"
+                onClick={() => setFeedMode("all")}
+              >
+                <Globe className="h-3.5 w-3.5" />
+                All
+              </Button>
+              <Button
+                variant={feedMode === "following" ? "default" : "ghost"}
+                size="sm"
+                className="h-7 px-3 text-xs gap-1.5"
+                onClick={() => setFeedMode("following")}
+              >
+                <Users className="h-3.5 w-3.5" />
+                Following
+                {followingIds.size > 0 && (
+                  <span className="ml-0.5 rounded-full bg-primary/20 text-primary px-1.5 text-[10px] font-semibold">
+                    {followingIds.size}
+                  </span>
+                )}
+              </Button>
+            </div>
+          )}
         </div>
 
+        {/* Empty states */}
+        {showFollowingEmpty && (
+          <div className="flex flex-col items-center justify-center py-20 text-center text-muted-foreground px-4">
+            <Users className="h-12 w-12 mb-4 opacity-20" />
+            <p className="font-semibold text-lg text-foreground">No posts yet</p>
+            <p className="text-sm mt-1 max-w-xs">
+              Follow businesses to see their latest updates here.
+            </p>
+            <Button asChild className="mt-6" onClick={() => setFeedMode("all")}>
+              <Link to="/explore">Explore Businesses</Link>
+            </Button>
+          </div>
+        )}
+
+        {showAllEmpty && (
+          <div className="flex flex-col items-center justify-center py-24 text-center text-muted-foreground px-4">
+            <p className="text-4xl mb-4">📰</p>
+            <p className="font-semibold text-lg text-foreground">Nothing to see here yet</p>
+            <p className="text-sm mt-1 max-w-xs">
+              Businesses haven't posted anything yet. Check back later.
+            </p>
+          </div>
+        )}
+
+        {/* Post list */}
         {posts.map((post) => {
           const isLiked = liked[post.id] ?? post.isLiked;
+          const isPostFollowed = followingIds.has(post.businessId);
           return (
             <article key={post.id} className="rounded-xl border bg-card overflow-hidden shadow-sm">
               {/* Header */}
@@ -102,8 +168,10 @@ const Feed = () => {
                     <p className="text-xs text-muted-foreground">{post.createdAt}</p>
                   </div>
                 </Link>
-                <Button variant="outline" size="sm" className="h-7 text-xs shrink-0">
-                  Follow
+                <Button variant="outline" size="sm" className="h-7 text-xs shrink-0" asChild>
+                  <Link to={`/business/${post.businessId}`}>
+                    {isPostFollowed ? "Following" : "Follow"}
+                  </Link>
                 </Button>
               </div>
 

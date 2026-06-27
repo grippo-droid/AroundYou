@@ -5,6 +5,7 @@ export interface User {
     phone: string;
     role: "user" | "business" | "admin";
     following?: string[];
+    followed_businesses?: string[];
     is_verified: boolean;
     bookmarked_businesses: string[];
     created_at: string;

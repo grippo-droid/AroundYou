@@ -267,6 +267,26 @@ export async function getAllPosts(): Promise<Post[]> {
   return (response.data.data || []).map(mapApiPostToPost);
 }
 
+export async function getFeedPosts(onlyFollowing = false): Promise<Post[]> {
+  const url = onlyFollowing ? "/posts/?following=true" : "/posts/";
+  const response = await apiClient.get<ApiResponse<ApiPost[]>>(url);
+  return (response.data.data || []).map(mapApiPostToPost);
+}
+
+export async function followBusiness(
+  businessId: string
+): Promise<{ following: boolean; follower_count: number }> {
+  const response = await apiClient.post<ApiResponse<{ following: boolean; follower_count: number }>>(
+    `/businesses/${businessId}/follow`
+  );
+  return response.data.data;
+}
+
+export async function getFollowingList(): Promise<string[]> {
+  const response = await apiClient.get<ApiResponse<string[]>>("/users/me/following");
+  return response.data.data || [];
+}
+
 // ─── Bookings ─────────────────────────────────────────────────────────────────
 
 export interface DayScheduleInput {
