@@ -1,0 +1,28 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+backend/.env
+backend/venv/
+backend/venv_msys2_backup/
+venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# ── Node / Frontend ───────────────────────────────────────────────────────────
+nearme-discovery-hub/node_modules/
+nearme-discovery-hub/dist/
+nearme-discovery-hub/dist-ssr/
+nearme-discovery-hub/.env
+nearme-discovery-hub/.env.local
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+debug_*.py
+.DS_Store
+Thumbs.db
+*.log

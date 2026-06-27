@@ -1,0 +1,153 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Space+Grotesk:wght@300..700&display=swap');
+@import 'leaflet/dist/leaflet.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Cool near-white — slightly blue-tinted, not sterile */
+    --background: 214 22% 98%;
+    --foreground: 222 40% 8%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 40% 8%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 40% 8%;
+
+    /* Electric blue — Google Maps / Apple Maps energy */
+    --primary: 213 93% 52%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Pale blue tint for secondary backgrounds */
+    --secondary: 213 70% 94%;
+    --secondary-foreground: 213 80% 26%;
+
+    --muted: 214 20% 94%;
+    --muted-foreground: 214 15% 45%;
+
+    /* Vibrant orange accent — Zomato / Swiggy energy */
+    --accent: 25 95% 55%;
+    --accent-foreground: 25 80% 12%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 18% 90%;
+    --input: 214 18% 90%;
+    --ring: 213 93% 52%;
+
+    --radius: 0.875rem;
+
+    --sidebar-background: 214 22% 98%;
+    --sidebar-foreground: 222 15% 30%;
+    --sidebar-primary: 213 93% 52%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 213 70% 94%;
+    --sidebar-accent-foreground: 213 80% 26%;
+    --sidebar-border: 214 18% 90%;
+    --sidebar-ring: 213 93% 52%;
+  }
+
+  .dark {
+    /* Deep navy — premium, not plain black */
+    --background: 222 38% 8%;
+    --foreground: 214 15% 95%;
+
+    --card: 222 32% 12%;
+    --card-foreground: 214 15% 95%;
+
+    --popover: 222 32% 12%;
+    --popover-foreground: 214 15% 95%;
+
+    /* Slightly lighter blue for dark mode legibility */
+    --primary: 213 88% 62%;
+    --primary-foreground: 222 38% 8%;
+
+    --secondary: 213 28% 18%;
+    --secondary-foreground: 213 60% 80%;
+
+    --muted: 222 26% 16%;
+    --muted-foreground: 214 10% 58%;
+
+    /* Orange stays punchy against dark navy */
+    --accent: 25 92% 58%;
+    --accent-foreground: 25 40% 10%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 96%;
+
+    --border: 222 26% 19%;
+    --input: 222 26% 19%;
+    --ring: 213 88% 62%;
+
+    --sidebar-background: 222 38% 9%;
+    --sidebar-foreground: 214 10% 90%;
+    --sidebar-primary: 213 88% 62%;
+    --sidebar-primary-foreground: 222 38% 8%;
+    --sidebar-accent: 213 28% 18%;
+    --sidebar-accent-foreground: 213 60% 80%;
+    --sidebar-border: 222 26% 19%;
+    --sidebar-ring: 213 88% 62%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Grotesk', sans-serif;
+  }
+}
+
+@layer utilities {
+  /* Blue → Cyan gradient text for hero headings */
+  .gradient-text {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(187, 82%, 52%) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Glass morphism — light */
+  .glass {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+  }
+
+  /* Glass morphism — dark */
+  .glass-dark {
+    background: rgba(10, 14, 30, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* Blue glow shadow */
+  .glow {
+    box-shadow: 0 0 40px -8px hsl(var(--primary) / 0.5);
+  }
+
+  .glow-sm {
+    box-shadow: 0 0 20px -4px hsl(var(--primary) / 0.35);
+  }
+
+  /* Hide scrollbar */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
