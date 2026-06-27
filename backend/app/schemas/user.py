@@ -24,6 +24,13 @@ class UserLogin(BaseModel):
     phone: str
     password: str
 
+    @field_validator("phone", mode="before")
+    @classmethod
+    def normalize_phone(cls, v):
+        if isinstance(v, str):
+            return v.replace(" ", "").strip()
+        return v
+
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[EmailStr] = None

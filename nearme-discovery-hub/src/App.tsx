@@ -35,7 +35,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <AuthProvider>
-          <BrowserRouter>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <div className="flex min-h-screen flex-col">
               <Navbar />
               <div className="flex-1">
