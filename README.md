@@ -1,174 +1,174 @@
 # NearMe Discovery Hub
 
-A full-stack hyper-local business discovery platform built with **React + Vite** (frontend) and **FastAPI + MongoDB** (backend).
+A hyper-local business discovery platform for urban India — find cafes, salons, clinics, restaurants, and more near you, book appointments, follow businesses, and apply for local jobs.
 
 ---
 
-## How to Start the Project
+## Features
 
-You need **3 PowerShell windows** open at the same time — one each for MongoDB, the backend, and the frontend. Follow the steps below in order.
-
----
-
-### Window 1 — MongoDB
-
-> Do this **once ever** (creates the data folder):
-```powershell
-New-Item -ItemType Directory -Force -Path "C:\data\db"
-```
-
-> Do this **every time** you want to run the project:
-```powershell
-& "C:\Program Files\MongoDB\Server\8.2\bin\mongod.exe" --dbpath "C:\data\db"
-```
-
-Leave this window open. You should see `Waiting for connections` in the output — that means MongoDB is running.
-
----
-
-### Window 2 — Backend (FastAPI)
-
-Open a **new** PowerShell window.
-
-> Do this **once ever** (sets up the Python environment):
-```powershell
-Set-Location "E:\LETS COOK\Projects\Around_You\backend"
-& ".\venv\Scripts\python.exe" -m pip install -r requirements.txt --prefer-binary
-```
-
-> Do this **every time** you want to run the project:
-```powershell
-Set-Location "E:\LETS COOK\Projects\Around_You\backend"
-& ".\venv\Scripts\uvicorn.exe" app.main:app --reload
-```
-
-Leave this window open. You should see `Application startup complete.` — that means the backend is running at **http://localhost:8000**.
-
----
-
-### Window 3 — Frontend (React + Vite)
-
-Open a **new** PowerShell window.
-
-> Do this **once ever** (installs Node packages):
-```powershell
-Set-Location "E:\LETS COOK\Projects\Around_You\nearme-discovery-hub"
-npm install
-```
-
-> Do this **every time** you want to run the project:
-```powershell
-Set-Location "E:\LETS COOK\Projects\Around_You\nearme-discovery-hub"
-npm run dev
-```
-
-Leave this window open. You should see `Local: http://localhost:8080/` — open that URL in your browser.
-
----
-
-### All 3 "every time" commands at a glance
-
-| Window | Command |
-|--------|---------|
-| 1 — MongoDB | `& "C:\Program Files\MongoDB\Server\8.2\bin\mongod.exe" --dbpath "C:\data\db"` |
-| 2 — Backend | `Set-Location "E:\LETS COOK\Projects\Around_You\backend"` → `& ".\venv\Scripts\uvicorn.exe" app.main:app --reload` |
-| 3 — Frontend | `Set-Location "E:\LETS COOK\Projects\Around_You\nearme-discovery-hub"` → `npm run dev` |
-
-Open **http://localhost:8080** in your browser once all 3 are running.
-
----
-
-## Project Structure
-
-```
-Around_You/
-├── backend/                  # FastAPI backend
-│   ├── app/
-│   │   ├── config/           # DB connection & settings
-│   │   ├── core/             # Auth, security, dependencies
-│   │   ├── models/           # MongoDB document models
-│   │   ├── schemas/          # Pydantic request/response schemas
-│   │   ├── services/         # Business logic
-│   │   ├── routes/           # API endpoints
-│   │   └── utils/            # Helper functions
-│   ├── venv/                 # Python virtual environment (Windows CPython 3.11)
-│   ├── requirements.txt
-│   └── .env                  # Environment variables (already configured)
-│
-└── nearme-discovery-hub/     # React + Vite frontend
-    ├── src/
-    │   ├── components/       # Reusable UI components
-    │   ├── pages/            # Page-level components
-    │   ├── services/         # API service functions
-    │   ├── context/          # React contexts (Auth, Theme)
-    │   └── types/            # TypeScript interfaces
-    └── package.json
-```
-
----
-
-## Environment Variables
-
-Already configured at `backend/.env` — no changes needed for local development:
-
-```env
-MONGO_URI=mongodb://localhost:27017
-DB_NAME=around_you_db
-JWT_SECRET=CHANGE_THIS_TO_A_SUPER_SECRET_KEY_IN_PRODUCTION
-JWT_ALGORITHM=HS256
-JWT_EXPIRE_MINUTES=10080
-COOKIE_NAME=access_token
-COOKIE_SECURE=True
-DOMAIN=localhost
-ENVIRONMENT=development
-CORS_ORIGINS=["http://localhost:8080","http://localhost:5173"]
-```
-
----
-
-## Recreating the Virtual Environment
-
-Only needed if the `backend/venv/` folder is missing or corrupted:
-
-```powershell
-Set-Location "E:\LETS COOK\Projects\Around_You\backend"
-& "C:\Users\Admin\AppData\Local\Programs\Python\Python311\python.exe" -m venv venv
-& ".\venv\Scripts\python.exe" -m pip install -r requirements.txt --prefer-binary
-```
+| Feature | Description |
+|---|---|
+| **Business Discovery** | Browse businesses by category with geolocation-based distance sorting |
+| **OTP + Password Auth** | Dual-mode login — phone/password or SMS OTP (MSG91 / Twilio) |
+| **Real-time Messaging** | In-app chat between users and business owners |
+| **Appointment Booking** | Slot-based booking with owner availability management |
+| **Reviews & Ratings** | Star reviews with live aggregated rating on business profiles |
+| **Social Post Feed** | Follow businesses and see their latest updates in a personalised feed |
+| **Job Listings** | Businesses post jobs; users apply with a one-tap application form |
+| **Role-based Access** | Three roles — `user`, `business`, `admin` — each with scoped permissions |
 
 ---
 
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| Frontend | React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, React Router v6, Leaflet, TanStack Query |
-| Backend | FastAPI, Python 3.11, Uvicorn (port 8000) |
-| Database | MongoDB 8.2 (port 27017), Motor (async driver) |
-| Auth | JWT via HTTP-only cookies, Argon2 password hashing |
+|---|---|
+| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, React Router v6, Recharts, Leaflet |
+| **Backend** | FastAPI, Python 3.11, Uvicorn, Motor (async MongoDB driver), Pydantic v2 |
+| **Database** | MongoDB 8.x |
+| **Auth** | JWT via HTTP-only cookies, Argon2 password hashing, SMS OTP |
+| **Storage** | Cloudinary (image uploads) |
 
 ---
 
-## First Time Using the App
+## Screenshots
 
-Once all 3 windows are running, go to **http://localhost:8080/register** and create an account.
-Pick role **"Business Owner"** if you want to list businesses, or **"User"** if you just want to explore.
-After registering, go to **/login** and sign in — you'll need an account to access the dashboard, messages, and profile pages.
+> [Add screenshots here]
 
 ---
 
-## Troubleshooting
+## Getting Started
 
-| Problem | Fix |
-|---------|-----|
-| `mongod` not recognized | Use the full path: `& "C:\Program Files\MongoDB\Server\8.2\bin\mongod.exe" --dbpath "C:\data\db"` |
-| `NonExistentPath: Data directory not found` | Run `New-Item -ItemType Directory -Force -Path "C:\data\db"` first |
-| `No module named 'fastapi'` | Run the pip install step in Window 2 |
-| Backend crashes on startup | Make sure MongoDB (Window 1) is running first |
-| Port 8000 already in use | Run `netstat -ano \| findstr :8000`, find the PID, then `Stop-Process -Id <PID> -Force` |
-| Port 8080 already in use | Run `netstat -ano \| findstr :8080`, find the PID, then `Stop-Process -Id <PID> -Force` |
-| CORS errors in browser | Backend must be running on port **8000** before opening the frontend |
-| `npm run dev` fails | Run `npm install` first in Window 3 |
-| Login not working | All 3 windows must be running — MongoDB, backend, and frontend |
-| Map not loading | Hard refresh with **Ctrl + Shift + R** |
-| `venv_msys2_backup/` folder exists | Safe to ignore — it's a backup of an old broken environment, not needed |
+You need **three terminal windows** running simultaneously.
+
+### Prerequisites
+
+- Python 3.11+
+- Node.js 18+ and npm
+- MongoDB 8.x running locally
+
+### 1 — Start MongoDB
+
+```bash
+mongod --dbpath /data/db
+```
+
+> First time only — create the data directory: `mkdir -p /data/db` (Linux/Mac) or `New-Item -ItemType Directory -Force C:\data\db` (Windows)
+
+### 2 — Backend (FastAPI)
+
+```bash
+cd backend
+
+# First time only — create virtual environment and install dependencies
+python -m venv venv
+source venv/bin/activate          # Windows: .\venv\Scripts\activate
+pip install -r requirements.txt
+
+# Copy and fill in environment variables
+cp .env.example .env
+
+# (Optional) Seed the database with sample data
+python seed.py
+
+# Start the server
+uvicorn app.main:app --reload
+```
+
+Backend runs at **http://localhost:8000**
+
+### 3 — Frontend (React + Vite)
+
+```bash
+cd nearme-discovery-hub
+
+# First time only
+npm install
+
+# Start dev server
+npm run dev
+```
+
+Frontend runs at **http://localhost:8080**
+
+Open **http://localhost:8080** in your browser. Register an account at `/register` and choose a role:
+- **User** — browse businesses, book appointments, apply for jobs
+- **Business** — list and manage your business, post updates, manage bookings
+
+---
+
+## Environment Variables
+
+Create `backend/.env` by copying `.env.example` and filling in your values.
+
+### Required
+
+| Variable | Description |
+|---|---|
+| `MONGO_URI` | MongoDB connection string (default: `mongodb://localhost:27017`) |
+| `DB_NAME` | Database name (default: `around_you_db`) |
+| `JWT_SECRET` | Secret key for signing JWT tokens — use a long random string in production |
+
+### Optional — SMS / OTP
+
+Set `SMS_PROVIDER=console` in development (OTPs print to the server log). Switch to `msg91` or `twilio` in production and fill in the corresponding keys.
+
+| Variable | Description |
+|---|---|
+| `SMS_PROVIDER` | `console` \| `msg91` \| `twilio` |
+| `MSG91_API_KEY` | MSG91 API key (for Indian SMS delivery) |
+| `MSG91_TEMPLATE_ID` | Registered DLT template ID |
+| `TWILIO_ACCOUNT_SID` | Twilio account SID |
+| `TWILIO_AUTH_TOKEN` | Twilio auth token |
+| `TWILIO_PHONE_NUMBER` | Twilio sender number |
+
+### Optional — Image Uploads
+
+| Variable | Description |
+|---|---|
+| `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name |
+| `CLOUDINARY_API_KEY` | Cloudinary API key |
+| `CLOUDINARY_API_SECRET` | Cloudinary API secret |
+
+The full variable reference is in `backend/.env.example`.
+
+---
+
+## API Documentation
+
+Interactive Swagger docs are available while the backend is running:
+
+```
+http://localhost:8000/docs
+```
+
+All endpoints, request schemas, and response models are documented there.
+
+---
+
+## Project Structure
+
+```
+AroundYou/
+├── backend/                        # FastAPI application
+│   ├── app/
+│   │   ├── config/                 # Database connection & settings
+│   │   ├── core/                   # Auth, JWT, security, dependencies
+│   │   ├── models/                 # MongoDB document models (Pydantic)
+│   │   ├── schemas/                # Request / response schemas
+│   │   ├── services/               # Business logic layer
+│   │   ├── routes/                 # API route handlers
+│   │   └── utils/                  # Helpers (ObjectId, response wrapper)
+│   ├── seed.py                     # Database seed script
+│   ├── requirements.txt
+│   └── .env.example
+│
+└── nearme-discovery-hub/           # React + Vite frontend
+    └── src/
+        ├── components/             # Reusable UI components (shadcn + custom)
+        ├── context/                # React contexts (Auth, Theme)
+        ├── hooks/                  # Custom hooks (geolocation, bookmarks)
+        ├── pages/                  # Page-level route components
+        ├── services/               # API service functions (api.ts)
+        └── types/                  # TypeScript interfaces
+```
