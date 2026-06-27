@@ -193,9 +193,11 @@ const Navbar = () => {
                 <DropdownMenuItem asChild>
                   <Link to="/profile">Profile</Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/dashboard">Dashboard</Link>
-                </DropdownMenuItem>
+                {(user.role === "business" || user.role === "admin") && (
+                  <DropdownMenuItem asChild>
+                    <Link to="/dashboard">Dashboard</Link>
+                  </DropdownMenuItem>
+                )}
                 {user.role === "admin" && (
                   <>
                     <DropdownMenuSeparator />
@@ -275,7 +277,7 @@ const Navbar = () => {
                 </span>
               )}
             </Button>
-            {user && (
+            {user && (user.role === "business" || user.role === "admin") && (
               <Button variant="ghost" className="justify-start" asChild onClick={() => setMenuOpen(false)}>
                 <Link to="/dashboard">Dashboard</Link>
               </Button>

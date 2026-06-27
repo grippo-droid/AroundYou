@@ -2,32 +2,26 @@ import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
     Plus, Store, CalendarDays, ImagePlus, Loader2,
-    Eye, Star, CalendarCheck, TrendingUp, Tag, Trash2,
+    Eye, Star, Tag, Trash2, BookOpen, Clock, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
-import { getMyBusinesses, deleteBusiness, createPost, fetchBusinessStats, fetchBusinessDeals, createDeal, deleteDeal } from "@/services/api";
-import type { BusinessStats, DealCreateData } from "@/services/api";
-import type { Deal } from "@/types";
+import {
+    getMyBusinesses, deleteBusiness, createPost,
+    fetchBusinessStats, fetchBusinessDeals, createDeal, deleteDeal,
+    getBusinessAppointments, getReviewsByBusiness,
+} from "@/services/api";
+import type { BusinessStats, DealCreateData, ApiBooking } from "@/services/api";
+import type { Deal, Review } from "@/types";
 import { toast } from "sonner";
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
+    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+    AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,7 +32,12 @@ import {
 } from "recharts";
 import type { Business } from "@/types/api";
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+function fmtDayName(iso: string): string {
+    const d = new Date(iso + "T12:00:00");
+    return d.toLocaleDateString("en-US", { weekday: "short" });
+}
 
 function fmtDate(iso: string): string {
     const d = new Date(iso + "T12:00:00");
@@ -58,9 +57,12 @@ const BusinessDashboard = () => {
     const [businesses, setBusinesses] = useState<Business[]>([]);
     const [busLoading, setBusLoading] = useState(true);
 
-    // Per-business stats keyed by business _id
     const [statsMap, setStatsMap] = useState<Record<string, BusinessStats>>({});
     const [statsLoading, setStatsLoading] = useState(false);
+
+    const [pendingBookings, setPendingBookings] = useState<ApiBooking[]>([]);
+    const [recentReviews, setRecentReviews] = useState<Review[]>([]);
+    const [rowsLoading, setRowsLoading] = useState(false);
 
     // ── load businesses ───────────────────────────────────────────────────────
     useEffect(() => {
@@ -70,10 +72,11 @@ const BusinessDashboard = () => {
             .finally(() => setBusLoading(false));
     }, []);
 
-    // ── load stats for every business once the list is ready ─────────────────
+    // ── load stats + appointments + reviews once businesses are ready ─────────
     useEffect(() => {
         if (businesses.length === 0) return;
         setStatsLoading(true);
+        setRowsLoading(true);
 
         Promise.allSettled(
             businesses.map((b) =>
@@ -88,23 +91,49 @@ const BusinessDashboard = () => {
                 }
             });
             setStatsMap(map);
-        }).finally(() => setStatsLoading(false));
+            setStatsLoading(false);
+        });
+
+        Promise.allSettled(businesses.map((b) => getBusinessAppointments(b._id!)))
+            .then((results) => {
+                const all: ApiBooking[] = [];
+                results.forEach((r) => {
+                    if (r.status === "fulfilled") all.push(...r.value);
+                });
+                setPendingBookings(
+                    all
+                        .filter((b) => b.status === "pending")
+                        .sort((a, b) => a.date.localeCompare(b.date))
+                        .slice(0, 5)
+                );
+            })
+            .finally(() => setRowsLoading(false));
+
+        Promise.allSettled(businesses.map((b) => getReviewsByBusiness(b._id!)))
+            .then((results) => {
+                const all: Review[] = [];
+                results.forEach((r) => {
+                    if (r.status === "fulfilled") all.push(...r.value);
+                });
+                setRecentReviews(all.slice(0, 3));
+            });
     }, [businesses]);
 
-    // ── aggregate stats across all businesses ─────────────────────────────────
+    // ── aggregated headline numbers ───────────────────────────────────────────
     const aggregate = useMemo(() => {
         const list = Object.values(statsMap);
         if (list.length === 0) return null;
         return {
-            total_views:    list.reduce((s, x) => s + x.total_views, 0),
+            total_views: list.reduce((s, x) => s + x.total_views, 0),
             total_bookings: list.reduce((s, x) => s + x.total_bookings, 0),
             pending_bookings: list.reduce((s, x) => s + x.pending_bookings, 0),
-            total_reviews:  list.reduce((s, x) => s + x.total_reviews, 0),
+            total_reviews: list.reduce((s, x) => s + x.total_reviews, 0),
             average_rating: +(list.reduce((s, x) => s + x.average_rating, 0) / list.length).toFixed(1),
+            bookings_this_week: list.reduce((s, x) => s + x.bookings_this_week, 0),
         };
     }, [statsMap]);
 
-    // ── aggregate chart data: sum all businesses' day counts ─────────────────
+    // ── combined chart data ───────────────────────────────────────────────────
     const chartData = useMemo(() => {
         const list = Object.values(statsMap);
         if (list.length === 0) return [];
@@ -187,7 +216,6 @@ const BusinessDashboard = () => {
                     : undefined,
             };
             await createDeal(dealDialogBusiness._id!, payload);
-            // Re-fetch so the new deal appears with correct id + formatting
             const updated = await fetchBusinessDeals(dealDialogBusiness._id!);
             setDealList(updated);
             setNewDeal({ title: "", description: "", discount_label: "", valid_until: "" });
@@ -209,6 +237,21 @@ const BusinessDashboard = () => {
         }
     };
 
+    if (user && user.role === "user") {
+        return (
+            <div className="container py-20 text-center space-y-4">
+                <Store className="h-12 w-12 mx-auto text-muted-foreground" />
+                <h2 className="text-xl font-semibold">Business accounts only</h2>
+                <p className="text-muted-foreground text-sm max-w-xs mx-auto">
+                    The dashboard is for business owners. Register a new account with the Business role to list and manage your business.
+                </p>
+                <Button asChild variant="outline">
+                    <Link to="/explore">Explore businesses</Link>
+                </Button>
+            </div>
+        );
+    }
+
     if (busLoading) return <div className="p-8 text-center">Loading dashboard…</div>;
 
     return (
@@ -218,7 +261,9 @@ const BusinessDashboard = () => {
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Business Dashboard</h1>
-                    <p className="text-muted-foreground mt-1">Manage your listings and view performance.</p>
+                    <p className="text-muted-foreground mt-1">
+                        Welcome back{user?.name ? `, ${user.name}` : ""}. Here's how your businesses are performing.
+                    </p>
                 </div>
                 <Button asChild>
                     <Link to="/add-business">
@@ -227,138 +272,261 @@ const BusinessDashboard = () => {
                 </Button>
             </div>
 
-            {/* ── Stats overview (4 cards) ── */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {/* Total Views */}
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Views</CardTitle>
-                        <Eye className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        {statsLoading ? (
-                            <Skel className="h-8 w-20 mb-1" />
-                        ) : (
-                            <div className="text-2xl font-bold">{aggregate?.total_views ?? 0}</div>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-1">
-                            {businesses.length > 1 ? "across all listings" : "on your listing"}
-                        </p>
-                    </CardContent>
-                </Card>
-
-                {/* Total Bookings */}
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
-                        <CalendarCheck className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        {statsLoading ? (
-                            <Skel className="h-8 w-20 mb-1" />
-                        ) : (
-                            <div className="text-2xl font-bold">{aggregate?.total_bookings ?? 0}</div>
-                        )}
-                        <div className="text-xs text-muted-foreground mt-1">
-                            {statsLoading ? <Skel className="h-3 w-24" /> : (
-                                <>{aggregate?.pending_bookings ?? 0} pending</>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Average Rating */}
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Avg Rating</CardTitle>
-                        <Star className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        {statsLoading ? (
-                            <Skel className="h-8 w-16 mb-1" />
-                        ) : (
-                            <div className="text-2xl font-bold">
-                                {aggregate ? aggregate.average_rating.toFixed(1) : "—"}
-                            </div>
-                        )}
-                        <div className="text-xs text-muted-foreground mt-1">
-                            {statsLoading ? <Skel className="h-3 w-24" /> : (
-                                <>{aggregate?.total_reviews ?? 0} reviews</>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* This week */}
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">This Week</CardTitle>
-                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        {statsLoading ? (
-                            <Skel className="h-8 w-16 mb-1" />
-                        ) : (
-                            <div className="text-2xl font-bold">
-                                {Object.values(statsMap).reduce((s, x) => s + x.bookings_this_week, 0)}
-                            </div>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-1">bookings in last 7 days</p>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* ── Bookings chart ── */}
+            {/* ── Analytics Overview ── */}
             {businesses.length > 0 && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">Bookings — Last 7 Days</CardTitle>
-                        <CardDescription>
-                            {businesses.length > 1 ? "Combined across all your businesses" : "For your business"}
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {statsLoading ? (
-                            <Skel className="h-48 w-full" />
-                        ) : (
-                            <ResponsiveContainer width="100%" height={200}>
-                                <BarChart data={chartData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                                    <XAxis
-                                        dataKey="date"
-                                        tickFormatter={fmtDate}
-                                        tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                                        axisLine={false}
-                                        tickLine={false}
-                                    />
-                                    <YAxis
-                                        allowDecimals={false}
-                                        tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                                        axisLine={false}
-                                        tickLine={false}
-                                        width={24}
-                                    />
-                                    <Tooltip
-                                        contentStyle={{
-                                            background: "hsl(var(--popover))",
-                                            border: "1px solid hsl(var(--border))",
-                                            borderRadius: "0.5rem",
-                                            fontSize: "12px",
-                                        }}
-                                        formatter={(v: number) => [v, "Bookings"]}
-                                        labelFormatter={fmtDate}
-                                    />
-                                    <Bar
-                                        dataKey="count"
-                                        fill="hsl(var(--primary))"
-                                        radius={[4, 4, 0, 0]}
-                                        maxBarSize={48}
-                                    />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        )}
-                    </CardContent>
-                </Card>
+                <section className="space-y-6">
+                    <h2 className="text-lg font-semibold text-muted-foreground uppercase tracking-wide text-xs">
+                        Analytics Overview
+                        {businesses.length > 1 && <span className="ml-1 normal-case">— across {businesses.length} businesses</span>}
+                    </h2>
+
+                    {/* Row 1: stat cards */}
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        {/* Total Bookings */}
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
+                                <BookOpen className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                {statsLoading ? (
+                                    <Skel className="h-8 w-20 mb-1" />
+                                ) : (
+                                    <div className="text-2xl font-bold">{aggregate?.total_bookings ?? 0}</div>
+                                )}
+                                <div className="text-xs text-muted-foreground mt-1">
+                                    {statsLoading ? <Skel className="h-3 w-24" /> : (
+                                        <>{aggregate?.pending_bookings ?? 0} pending approval</>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* This Week */}
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">This Week</CardTitle>
+                                <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                {statsLoading ? (
+                                    <Skel className="h-8 w-16 mb-1" />
+                                ) : (
+                                    <div className="text-2xl font-bold">{aggregate?.bookings_this_week ?? 0}</div>
+                                )}
+                                <p className="text-xs text-muted-foreground mt-1">bookings in last 7 days</p>
+                            </CardContent>
+                        </Card>
+
+                        {/* Average Rating */}
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Avg Rating</CardTitle>
+                                <Star className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                {statsLoading ? (
+                                    <Skel className="h-8 w-16 mb-1" />
+                                ) : (
+                                    <div className="text-2xl font-bold">
+                                        {aggregate ? `${aggregate.average_rating.toFixed(1)} ★` : "— ★"}
+                                    </div>
+                                )}
+                                <div className="text-xs text-muted-foreground mt-1">
+                                    {statsLoading ? <Skel className="h-3 w-20" /> : (
+                                        <>{aggregate?.total_reviews ?? 0} total reviews</>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Profile Views */}
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Profile Views</CardTitle>
+                                <Eye className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                {statsLoading ? (
+                                    <Skel className="h-8 w-20 mb-1" />
+                                ) : (
+                                    <div className="text-2xl font-bold">{aggregate?.total_views ?? 0}</div>
+                                )}
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    {businesses.length > 1 ? "across all listings" : "on your listing"}
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Row 2: bar chart */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base">Bookings — Last 7 Days</CardTitle>
+                            <CardDescription>
+                                {businesses.length > 1
+                                    ? "Combined across all your businesses"
+                                    : "For your business"}
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {statsLoading ? (
+                                <Skel className="h-52 w-full" />
+                            ) : (
+                                <ResponsiveContainer width="100%" height={210}>
+                                    <BarChart data={chartData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                                        <XAxis
+                                            dataKey="date"
+                                            tickFormatter={fmtDayName}
+                                            tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+                                            axisLine={false}
+                                            tickLine={false}
+                                        />
+                                        <YAxis
+                                            allowDecimals={false}
+                                            tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+                                            axisLine={false}
+                                            tickLine={false}
+                                            width={24}
+                                        />
+                                        <Tooltip
+                                            contentStyle={{
+                                                background: "hsl(var(--popover))",
+                                                border: "1px solid hsl(var(--border))",
+                                                borderRadius: "0.5rem",
+                                                fontSize: "12px",
+                                            }}
+                                            formatter={(v: number) => [v, "Bookings"]}
+                                            labelFormatter={fmtDate}
+                                        />
+                                        <Bar
+                                            dataKey="count"
+                                            fill="hsl(var(--primary))"
+                                            radius={[4, 4, 0, 0]}
+                                            maxBarSize={52}
+                                        />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Row 3: pending bookings + recent reviews */}
+                    <div className="grid gap-6 lg:grid-cols-2">
+
+                        {/* Pending bookings */}
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between pb-3">
+                                <div>
+                                    <CardTitle className="text-base">Pending Bookings</CardTitle>
+                                    <CardDescription>Awaiting your confirmation</CardDescription>
+                                </div>
+                                {aggregate && aggregate.pending_bookings > 0 && (
+                                    <Badge variant="secondary" className="text-orange-600 bg-orange-100 dark:bg-orange-900/30">
+                                        {aggregate.pending_bookings} pending
+                                    </Badge>
+                                )}
+                            </CardHeader>
+                            <CardContent className="pt-0">
+                                {rowsLoading ? (
+                                    <div className="space-y-3">
+                                        {[0, 1, 2].map((i) => (
+                                            <div key={i} className="flex items-center gap-3">
+                                                <Skel className="h-9 w-9 rounded-full" />
+                                                <div className="flex-1 space-y-1.5">
+                                                    <Skel className="h-3 w-32" />
+                                                    <Skel className="h-3 w-24" />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : pendingBookings.length === 0 ? (
+                                    <div className="py-8 text-center text-sm text-muted-foreground">
+                                        <Clock className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                                        No pending bookings
+                                    </div>
+                                ) : (
+                                    <ul className="divide-y -mx-1">
+                                        {pendingBookings.map((bk) => (
+                                            <li key={bk._id} className="flex items-center gap-3 px-1 py-2.5">
+                                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/30">
+                                                    <CalendarDays className="h-4 w-4 text-orange-600" />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-sm font-medium truncate">{bk.user_name}</p>
+                                                    <p className="text-xs text-muted-foreground truncate">
+                                                        {bk.business_name} · {fmtDate(bk.date)} at {bk.time_slot}
+                                                    </p>
+                                                </div>
+                                                <Badge variant="outline" className="text-[10px] shrink-0">pending</Badge>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                                {pendingBookings.length > 0 && (
+                                    <div className="pt-3 border-t mt-1">
+                                        {businesses.map((b) => (
+                                            <Button key={b._id} variant="ghost" size="sm" className="w-full justify-between text-xs h-8" asChild>
+                                                <Link to={`/business/${b._id}/staff`}>
+                                                    Manage {b.name} bookings
+                                                    <ChevronRight className="h-3.5 w-3.5" />
+                                                </Link>
+                                            </Button>
+                                        ))}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Recent reviews */}
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base">Recent Reviews</CardTitle>
+                                <CardDescription>Latest customer feedback</CardDescription>
+                            </CardHeader>
+                            <CardContent className="pt-0">
+                                {rowsLoading ? (
+                                    <div className="space-y-4">
+                                        {[0, 1, 2].map((i) => (
+                                            <div key={i} className="space-y-1.5">
+                                                <div className="flex items-center gap-2">
+                                                    <Skel className="h-3 w-20" />
+                                                    <Skel className="h-3 w-12" />
+                                                </div>
+                                                <Skel className="h-3 w-full" />
+                                                <Skel className="h-3 w-3/4" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : recentReviews.length === 0 ? (
+                                    <div className="py-8 text-center text-sm text-muted-foreground">
+                                        <Star className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                                        No reviews yet
+                                    </div>
+                                ) : (
+                                    <ul className="divide-y -mx-1">
+                                        {recentReviews.map((rv) => (
+                                            <li key={rv.id} className="px-1 py-3">
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <span className="text-sm font-medium">{rv.userName}</span>
+                                                    <span className="flex items-center gap-0.5 text-amber-500 text-xs font-semibold">
+                                                        {rv.rating}
+                                                        <Star className="h-3 w-3 fill-amber-500" />
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                                                    "{rv.text}"
+                                                </p>
+                                                <p className="text-[11px] text-muted-foreground/60 mt-1">{rv.createdAt}</p>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+                </section>
             )}
 
             {/* ── My Businesses ── */}
@@ -392,7 +560,6 @@ const BusinessDashboard = () => {
                                     </CardHeader>
                                     <CardContent className="pb-3">
                                         <p className="text-sm text-muted-foreground line-clamp-2">{business.description}</p>
-                                        {/* Inline mini stats */}
                                         <div className="mt-3 flex gap-4 text-xs text-muted-foreground">
                                             {statsLoading && !s ? (
                                                 <>
@@ -406,7 +573,7 @@ const BusinessDashboard = () => {
                                                         <Eye className="h-3 w-3" />{s.total_views} views
                                                     </span>
                                                     <span className="flex items-center gap-1">
-                                                        <CalendarCheck className="h-3 w-3" />{s.total_bookings} bookings
+                                                        <BookOpen className="h-3 w-3" />{s.total_bookings} bookings
                                                     </span>
                                                     <span className="flex items-center gap-1">
                                                         <Star className="h-3 w-3" />{s.average_rating.toFixed(1)}
@@ -487,7 +654,6 @@ const BusinessDashboard = () => {
                         </DialogTitle>
                     </DialogHeader>
 
-                    {/* Existing deals */}
                     <div className="space-y-2">
                         {dealsLoading ? (
                             <div className="py-6 text-center text-sm text-muted-foreground">
@@ -500,10 +666,7 @@ const BusinessDashboard = () => {
                             </p>
                         ) : (
                             dealList.map((deal) => (
-                                <div
-                                    key={deal.id}
-                                    className="flex items-start justify-between gap-3 rounded-lg border p-3"
-                                >
+                                <div key={deal.id} className="flex items-start justify-between gap-3 rounded-lg border p-3">
                                     <div className="min-w-0">
                                         <p className="font-medium text-sm truncate">{deal.title}</p>
                                         <p className="text-xs text-muted-foreground truncate">{deal.description}</p>
@@ -525,7 +688,6 @@ const BusinessDashboard = () => {
                         )}
                     </div>
 
-                    {/* Add new deal form */}
                     <div className="border-t pt-4 space-y-3">
                         <p className="text-sm font-medium">Add a new deal</p>
                         <div className="space-y-2">

@@ -96,7 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         } catch (err) {
             const error = err as AxiosError<ApiErrorData>;
-            toast.error(error.response?.data?.message || "Login failed");
+            toast.error(error.response?.data?.detail || error.response?.data?.message || "Login failed");
             throw err;
         }
     };
