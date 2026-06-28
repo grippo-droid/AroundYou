@@ -1,19 +1,22 @@
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import { useNavigate } from "react-router-dom";
 import type { Business } from "@/types";
 
-// Fix broken default icon asset paths that Vite/webpack bundlers mangle
+// Fix Leaflet's broken default icon resolution under Vite (bundler mangles asset paths)
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
-  iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
 });
 
-const DEFAULT_CENTER: [number, number] = [12.9716, 77.5946]; // Bangalore fallback
+const DEFAULT_CENTER: [number, number] = [23.2599, 77.4126]; // Bhopal fallback
 const DEFAULT_ZOOM = 13;
 
 // ── Category config ──────────────────────────────────────────────────────────
