@@ -26,6 +26,7 @@ class BusinessModel(BaseModel):
     images: List[str] = []
     services: List[str] = []
     is_verified: bool = False
+    is_active: bool = True
     rating: float = 0.0
     review_count: int = 0
     followers: int = 0

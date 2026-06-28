@@ -78,6 +78,8 @@ export interface ApiReview {
   rating: number;
   text: string;
   created_at: string;
+  owner_reply?: string;
+  owner_reply_at?: string;
 }
 
 export interface ReviewCreateData {
@@ -171,6 +173,10 @@ function mapApiReviewToReview(r: ApiReview): Review {
     rating: r.rating,
     text: r.text,
     createdAt: new Date(r.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
+    ownerReply: r.owner_reply,
+    ownerReplyAt: r.owner_reply_at
+      ? new Date(r.owner_reply_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })
+      : undefined,
   };
 }
 
@@ -182,9 +188,17 @@ export async function getBusinesses(params?: {
   search?: string;
   skip?: number;
   limit?: number;
-}): Promise<Business[]> {
-  const response = await apiClient.get<ApiResponse<ApiBusRaw[]>>("/businesses/", { params });
-  return (response.data.data || []).map(mapApiBusinessToBusiness);
+}): Promise<{ businesses: Business[]; total: number; hasMore: boolean }> {
+  const response = await apiClient.get<ApiResponse<{ businesses: ApiBusRaw[]; total: number; has_more: boolean }>>(
+    "/businesses/",
+    { params }
+  );
+  const d = response.data.data;
+  return {
+    businesses: (d?.businesses || []).map(mapApiBusinessToBusiness),
+    total: d?.total ?? 0,
+    hasMore: d?.has_more ?? false,
+  };
 }
 
 export async function getBusinessById(id: string): Promise<Business | undefined> {
@@ -394,6 +408,11 @@ export async function createReview(businessId: string, data: ReviewCreateData): 
   return mapApiReviewToReview(response.data.data);
 }
 
+export async function replyToReview(reviewId: string, reply: string): Promise<Review> {
+  const response = await apiClient.put<ApiResponse<ApiReview>>(`/reviews/${reviewId}/reply`, { reply });
+  return mapApiReviewToReview(response.data.data);
+}
+
 export async function getChatThreads(): Promise<ChatThread[]> {
   return [];
 }
@@ -511,6 +530,79 @@ export async function updateApplicationStatus(applicationId: string, status: str
 
 export async function deleteApplication(applicationId: string): Promise<void> {
   await apiClient.delete(`/applications/${applicationId}`);
+}
+
+// ─── Admin ────────────────────────────────────────────────────────────────────
+
+export interface AdminStats {
+  total_users: number;
+  total_businesses: number;
+  total_bookings: number;
+  total_reviews: number;
+  new_users_this_week: number;
+  new_businesses_this_week: number;
+}
+
+export interface AdminUser {
+  _id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  role: string;
+  created_at: string;
+}
+
+export interface AdminBusiness {
+  _id: string;
+  name: string;
+  category: string;
+  city: string;
+  is_active: boolean;
+  is_verified: boolean;
+  rating: number;
+  review_count: number;
+  created_at: string;
+}
+
+export interface AdminReview {
+  _id: string;
+  business_id: string;
+  user_name: string;
+  rating: number;
+  text: string;
+  created_at: string;
+}
+
+export async function getAdminStats(): Promise<AdminStats> {
+  const response = await apiClient.get<ApiResponse<AdminStats>>("/admin/stats");
+  return response.data.data;
+}
+
+export async function getAdminUsers(params?: { skip?: number; limit?: number; search?: string }): Promise<{ users: AdminUser[]; total: number }> {
+  const response = await apiClient.get<ApiResponse<{ users: AdminUser[]; total: number }>>("/admin/users", { params });
+  return response.data.data;
+}
+
+export async function updateAdminUserRole(userId: string, role: string): Promise<void> {
+  await apiClient.put(`/admin/users/${userId}/role`, { role });
+}
+
+export async function getAdminBusinesses(params?: { skip?: number; limit?: number; search?: string }): Promise<{ businesses: AdminBusiness[]; total: number }> {
+  const response = await apiClient.get<ApiResponse<{ businesses: AdminBusiness[]; total: number }>>("/admin/businesses", { params });
+  return response.data.data;
+}
+
+export async function updateAdminBusinessStatus(businessId: string, is_active: boolean): Promise<void> {
+  await apiClient.put(`/admin/businesses/${businessId}/status`, { is_active });
+}
+
+export async function getAdminReviews(params?: { skip?: number; limit?: number }): Promise<{ reviews: AdminReview[]; total: number }> {
+  const response = await apiClient.get<ApiResponse<{ reviews: AdminReview[]; total: number }>>("/admin/reviews", { params });
+  return response.data.data;
+}
+
+export async function deleteAdminReview(reviewId: string): Promise<void> {
+  await apiClient.delete(`/admin/reviews/${reviewId}`);
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────

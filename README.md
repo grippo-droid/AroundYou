@@ -39,7 +39,7 @@ A hyper-local business discovery platform for urban India — find cafes, salons
 
 ## Getting Started
 
-You need **three terminal windows** running simultaneously.
+You need **three PowerShell terminals** running simultaneously.
 
 ### Prerequisites
 
@@ -49,43 +49,65 @@ You need **three terminal windows** running simultaneously.
 
 ### 1 — Start MongoDB
 
-```bash
-mongod --dbpath /data/db
+```powershell
+mongod --dbpath C:\data\db
 ```
 
-> First time only — create the data directory: `mkdir -p /data/db` (Linux/Mac) or `New-Item -ItemType Directory -Force C:\data\db` (Windows)
+> First time only — create the data directory:
+> ```powershell
+> New-Item -ItemType Directory -Force C:\data\db
+> ```
+> If MongoDB is already running (lock file error), skip this step.
 
 ### 2 — Backend (FastAPI)
 
-```bash
-cd backend
+```powershell
+cd "E:\LETS COOK\Projects\Around_You\backend"
+```
 
-# First time only — create virtual environment and install dependencies
+First time only — create virtual environment and install dependencies:
+
+```powershell
 python -m venv venv
-source venv/bin/activate          # Windows: .\venv\Scripts\activate
+.\venv\Scripts\activate
 pip install -r requirements.txt
+```
 
-# Copy and fill in environment variables
-cp .env.example .env
+Copy and fill in environment variables:
 
-# (Optional) Seed the database with sample data
-python seed.py
+```powershell
+Copy-Item .env.example .env
+```
 
-# Start the server
-uvicorn app.main:app --reload
+Seed the database with sample data (Pune + Bhopal businesses):
+
+```powershell
+.\venv\Scripts\python.exe seed.py
+```
+
+Start the server:
+
+```powershell
+.\venv\Scripts\uvicorn.exe app.main:app --reload --port 8000
 ```
 
 Backend runs at **http://localhost:8000**
 
 ### 3 — Frontend (React + Vite)
 
-```bash
-cd nearme-discovery-hub
+```powershell
+cd "E:\LETS COOK\Projects\Around_You\nearme-discovery-hub"
+```
 
-# First time only
+First time only:
+
+```powershell
 npm install
+```
 
-# Start dev server
+Start dev server:
+
+```powershell
 npm run dev
 ```
 
@@ -94,6 +116,16 @@ Frontend runs at **http://localhost:8080**
 Open **http://localhost:8080** in your browser. Register an account at `/register` and choose a role:
 - **User** — browse businesses, book appointments, apply for jobs
 - **Business** — list and manage your business, post updates, manage bookings
+
+### Demo Credentials (after running seed.py)
+
+| Role | Phone | Password |
+|---|---|---|
+| User (Bhopal) | `+919876543210` | `password123` |
+| User (Pune) | `+919543210987` | `password123` |
+| Business Owner (Bhopal) | `+919654321098` | `business123` |
+| Business Owner (Pune) | `+918765432109` | `business456` |
+| **Admin** | `+910000000000` | `admin123` |
 
 ---
 

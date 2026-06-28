@@ -1,3 +1,4 @@
+import asyncio
 from typing import List, Optional
 from datetime import datetime, timedelta, date
 from bson import ObjectId
@@ -19,9 +20,9 @@ class BusinessService:
         return new_business
 
     @staticmethod
-    async def get_businesses(category: Optional[str] = None, search: Optional[str] = None, skip: int = 0, limit: int = 12) -> List[BusinessModel]:
+    async def get_businesses(category: Optional[str] = None, search: Optional[str] = None, skip: int = 0, limit: int = 12) -> dict:
         db = get_database()
-        query = {}
+        query: dict = {"is_active": {"$ne": False}}
         if category:
             query["category"] = category
         if search:
@@ -31,9 +32,17 @@ class BusinessService:
                 {"category": {"$regex": search, "$options": "i"}}
             ]
 
-        cursor = db.businesses.find(query).sort("created_at", -1).skip(skip).limit(limit)
-        businesses = await cursor.to_list(length=limit)
-        return [BusinessModel(**b) for b in businesses]
+        cursor = db.businesses.find(query).sort([("created_at", -1), ("_id", -1)]).skip(skip).limit(limit)
+        raw, total = await asyncio.gather(
+            cursor.to_list(length=limit),
+            db.businesses.count_documents(query),
+        )
+        businesses = [BusinessModel(**b) for b in raw]
+        return {
+            "businesses": businesses,
+            "total": total,
+            "has_more": (skip + len(businesses)) < total,
+        }
 
     @staticmethod
     async def get_business_by_id(business_id: str) -> Optional[BusinessModel]:
