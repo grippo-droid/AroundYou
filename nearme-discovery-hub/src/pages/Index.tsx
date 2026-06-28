@@ -35,13 +35,40 @@ const Index = () => {
               Hyper-local discovery
             </div>
 
-            <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] mb-5">
-              Discover new & nearby{" "}
-              <span className="gradient-text">businesses</span>{" "}
+            <h1
+              className="mb-5 text-foreground"
+              style={{
+                fontFamily: '"Space Grotesk", sans-serif',
+                fontWeight: 700,
+                fontSize: "clamp(2.6rem, 5.6vw, 4.4rem)",
+                lineHeight: 1.04,
+                letterSpacing: "-0.03em",
+              }}
+            >
+              Discover what's{" "}
+              <span
+                style={{
+                  background: "linear-gradient(120deg, #1A73E8, #0B1F3A 60%, #EA4335)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                  color: "transparent",
+                }}
+              >
+                new &amp; nearby
+              </span>{" "}
               around you
             </h1>
 
-            <p className="text-lg text-muted-foreground mb-10 max-w-lg mx-auto leading-relaxed">
+            <p
+              className="mb-10 max-w-lg mx-auto text-muted-foreground"
+              style={{
+                fontFamily: '"DM Sans", sans-serif',
+                fontWeight: 400,
+                fontSize: "18px",
+                lineHeight: 1.6,
+              }}
+            >
               Find cafes, salons, clinics, and more — verified and just around the corner.
             </p>
 
