@@ -62,10 +62,10 @@ const USER_ICON = L.divIcon({
   className: "",
   html: `<div style="
     width:14px;height:14px;
-    background:#2563EB;
+    background:#1A73E8;
     border-radius:50%;
     border:2.5px solid #fff;
-    box-shadow:0 0 0 5px rgba(37,99,235,.22),0 2px 6px rgba(0,0,0,.25);
+    box-shadow:0 0 0 5px rgba(26,115,232,.25),0 2px 6px rgba(0,0,0,.25);
   "></div>`,
   iconSize: [14, 14],
   iconAnchor: [7, 7],
@@ -231,7 +231,7 @@ const BusinessMap = ({ businesses, userLocation }: BusinessMapProps) => {
                     display: "block",
                     width: "100%",
                     padding: "7px 0",
-                    background: "#2563EB",
+                    background: "#EA4335",
                     color: "#fff",
                     border: "none",
                     borderRadius: "7px",

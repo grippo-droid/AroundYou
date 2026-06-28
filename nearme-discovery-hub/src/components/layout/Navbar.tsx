@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Logo } from "@/components/Logo";
 import { Search, MapPin, Menu, X, Briefcase, MessageSquare, LogOut, Bell, Rss, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -106,15 +107,9 @@ const Navbar = () => {
   return (
     <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-xl">
       <div className="container flex h-16 items-center justify-between gap-4">
-        {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 shrink-0">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 text-white font-display font-bold text-lg shadow-md">
-            N
-          </div>
-          <span className="font-display text-xl font-bold tracking-tight hidden sm:block">
-            NearMe
-          </span>
-        </Link>
+        {/* Logo — mark only on mobile, full lockup on sm+ */}
+        <span className="hidden sm:block shrink-0"><Logo size={34} /></span>
+        <span className="sm:hidden shrink-0"><Logo size={32} withWordmark={false} /></span>
 
         {/* Search — desktop */}
         <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md">

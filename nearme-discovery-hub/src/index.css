@@ -7,90 +7,91 @@
 
 @layer base {
   :root {
-    /* Cool near-white — slightly blue-tinted, not sterile */
-    --background: 214 22% 98%;
-    --foreground: 222 40% 8%;
+    /* Light: bg #F1F4FA · card #FFF · text #0B1F3A · primary #1A73E8 · border #DBE3F0 */
+    --background: 220 47% 96%;
+    --foreground: 214 68% 14%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 40% 8%;
+    --card-foreground: 214 68% 14%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 40% 8%;
+    --popover-foreground: 214 68% 14%;
 
-    /* Electric blue — Google Maps / Apple Maps energy */
-    --primary: 213 93% 52%;
+    /* Maps blue — #1A73E8 → hsl(214, 82%, 51%) */
+    --primary: 214 82% 51%;
     --primary-foreground: 0 0% 100%;
 
-    /* Pale blue tint for secondary backgrounds */
-    --secondary: 213 70% 94%;
-    --secondary-foreground: 213 80% 26%;
+    --secondary: 217 41% 90%;
+    --secondary-foreground: 214 68% 14%;
 
-    --muted: 214 20% 94%;
-    --muted-foreground: 214 15% 45%;
+    --muted: 217 35% 93%;
+    --muted-foreground: 215 19% 43%;
 
-    /* Vibrant orange accent — Zomato / Swiggy energy */
-    --accent: 25 95% 55%;
-    --accent-foreground: 25 80% 12%;
+    /* Hover blue tint — light blue surface for interactive states */
+    --accent: 214 60% 92%;
+    --accent-foreground: 214 68% 20%;
 
-    --destructive: 0 84% 60%;
+    /* Red pin — #EA4335 — errors, destructive actions only */
+    --destructive: 5 81% 56%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 18% 90%;
-    --input: 214 18% 90%;
-    --ring: 213 93% 52%;
+    --border: 217 41% 90%;
+    --input: 217 41% 90%;
+    --ring: 214 82% 51%;
 
     --radius: 0.875rem;
 
-    --sidebar-background: 214 22% 98%;
-    --sidebar-foreground: 222 15% 30%;
-    --sidebar-primary: 213 93% 52%;
+    --sidebar-background: 220 47% 95%;
+    --sidebar-foreground: 214 68% 18%;
+    --sidebar-primary: 214 82% 51%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 213 70% 94%;
-    --sidebar-accent-foreground: 213 80% 26%;
-    --sidebar-border: 214 18% 90%;
-    --sidebar-ring: 213 93% 52%;
+    --sidebar-accent: 217 41% 90%;
+    --sidebar-accent-foreground: 214 68% 18%;
+    --sidebar-border: 217 41% 90%;
+    --sidebar-ring: 214 82% 51%;
   }
 
   .dark {
-    /* Deep navy — premium, not plain black */
-    --background: 222 38% 8%;
-    --foreground: 214 15% 95%;
+    /* Dark: bg #070D1A · card #101C31 · text #E5ECF7 · primary #5B9BF3 · border #1D2D49 */
+    --background: 221 58% 6%;
+    --foreground: 217 53% 93%;
 
-    --card: 222 32% 12%;
-    --card-foreground: 214 15% 95%;
+    --card: 218 51% 13%;
+    --card-foreground: 217 53% 93%;
 
-    --popover: 222 32% 12%;
-    --popover-foreground: 214 15% 95%;
+    --popover: 218 51% 13%;
+    --popover-foreground: 217 53% 93%;
 
-    /* Slightly lighter blue for dark mode legibility */
-    --primary: 213 88% 62%;
-    --primary-foreground: 222 38% 8%;
+    /* Lighter blue — #5B9BF3 → hsl(215, 86%, 65%) */
+    --primary: 215 86% 65%;
+    --primary-foreground: 221 58% 6%;
 
-    --secondary: 213 28% 18%;
-    --secondary-foreground: 213 60% 80%;
+    --secondary: 218 43% 20%;
+    --secondary-foreground: 217 40% 75%;
 
-    --muted: 222 26% 16%;
-    --muted-foreground: 214 10% 58%;
+    --muted: 218 43% 17%;
+    --muted-foreground: 215 19% 55%;
 
-    /* Orange stays punchy against dark navy */
-    --accent: 25 92% 58%;
-    --accent-foreground: 25 40% 10%;
+    /* Hover navy tint — dark blue surface for interactive states */
+    --accent: 214 45% 22%;
+    --accent-foreground: 215 70% 80%;
 
-    --destructive: 0 62% 50%;
+    /* Red pin — errors, destructive actions only */
+    --destructive: 4 83% 65%;
     --destructive-foreground: 0 0% 96%;
 
-    --border: 222 26% 19%;
-    --input: 222 26% 19%;
-    --ring: 213 88% 62%;
+    --border: 218 43% 20%;
+    --input: 218 43% 20%;
+    --ring: 215 86% 65%;
 
-    --sidebar-background: 222 38% 9%;
-    --sidebar-foreground: 214 10% 90%;
-    --sidebar-primary: 213 88% 62%;
-    --sidebar-primary-foreground: 222 38% 8%;
-    --sidebar-accent: 213 28% 18%;
-    --sidebar-accent-foreground: 213 60% 80%;
-    --sidebar-border: 222 26% 19%;
-    --sidebar-ring: 213 88% 62%;
+    --sidebar-background: 221 58% 6%;
+    --sidebar-foreground: 217 35% 70%;
+    --sidebar-primary: 215 86% 65%;
+    --sidebar-primary-foreground: 221 58% 6%;
+    --sidebar-accent: 218 43% 20%;
+    --sidebar-accent-foreground: 217 40% 75%;
+    --sidebar-border: 218 43% 20%;
+    --sidebar-ring: 215 86% 65%;
   }
 }
 
@@ -109,28 +110,28 @@
 }
 
 @layer utilities {
-  /* Blue → Cyan gradient text for hero headings */
+  /* Deep navy → Maps blue gradient for hero headings */
   .gradient-text {
-    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(187, 82%, 52%) 100%);
+    background: linear-gradient(135deg, hsl(214, 68%, 14%) 0%, hsl(214, 82%, 51%) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
-  /* Glass morphism — light */
+  /* Glass morphism — light (blue-white tint) */
   .glass {
-    background: rgba(255, 255, 255, 0.72);
+    background: rgba(241, 244, 250, 0.82);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.35);
+    border: 1px solid rgba(219, 227, 240, 0.60);
   }
 
-  /* Glass morphism — dark */
+  /* Glass morphism — dark (deep navy tint) */
   .glass-dark {
-    background: rgba(10, 14, 30, 0.6);
+    background: rgba(7, 13, 26, 0.75);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(29, 45, 73, 0.80);
   }
 
   /* Blue glow shadow */
