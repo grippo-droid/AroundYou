@@ -11,11 +11,13 @@ class MessageService:
     async def create_or_get_conversation(sender_id: str, sender_type: str, receiver_id: str, receiver_type: str) -> ConversationModel:
         db = get_database()
         
-        # Check if conversation exists
+        # Check if conversation exists.
+        # participant IDs are stored as strings (model_dump serialises PyObjectId via str()),
+        # so the query must use str() — not ObjectId() — to match.
         query = {
             "$and": [
-                {"participants": {"$elemMatch": {"id": ObjectId(sender_id), "type": sender_type}}},
-                {"participants": {"$elemMatch": {"id": ObjectId(receiver_id), "type": receiver_type}}}
+                {"participants": {"$elemMatch": {"id": str(sender_id), "type": sender_type}}},
+                {"participants": {"$elemMatch": {"id": str(receiver_id), "type": receiver_type}}}
             ]
         }
         
@@ -76,7 +78,7 @@ class MessageService:
     async def get_user_conversations(user_id: str, user_type: str) -> List[ConversationModel]:
         db = get_database()
         cursor = db.conversations.find(
-            {"participants": {"$elemMatch": {"id": ObjectId(user_id), "type": user_type}}}
+            {"participants": {"$elemMatch": {"id": str(user_id), "type": user_type}}}
         ).sort("last_message_at", -1)
         
         conversations = await cursor.to_list(length=None)
@@ -85,6 +87,6 @@ class MessageService:
     @staticmethod
     async def get_conversation_messages(conversation_id: str) -> List[MessageModel]:
         db = get_database()
-        cursor = db.messages.find({"conversation_id": ObjectId(conversation_id)}).sort("created_at", 1)
+        cursor = db.messages.find({"conversation_id": str(conversation_id)}).sort("created_at", 1)
         messages = await cursor.to_list(length=None)
         return [MessageModel(**msg) for msg in messages]
