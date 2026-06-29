@@ -109,6 +109,23 @@ _BIZ_TEMPLATE = {
     "rating": 0.0, "review_count": 0,
 }
 
+CATEGORY_IMAGES = {
+    "Cafe":       ["https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80",
+                   "https://images.unsplash.com/photo-1453614512568-c4024d13c247?w=800&q=80"],
+    "Restaurant": ["https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?w=800&q=80",
+                   "https://images.unsplash.com/photo-1484659619207-9165d119dafe?w=800&q=80"],
+    "Salon":      ["https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?w=800&q=80",
+                   "https://images.unsplash.com/photo-1470259078422-826894b933aa?w=800&q=80"],
+    "Gym":        ["https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800&q=80",
+                   "https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=800&q=80"],
+    "Medical":    ["https://images.unsplash.com/photo-1538108149393-fbbd81895907?w=800&q=80",
+                   "https://images.unsplash.com/photo-1504813184591-01572f98c85f?w=800&q=80"],
+    "Services":   ["https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=800&q=80",
+                   "https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=800&q=80"],
+    "Stationery": ["https://images.unsplash.com/photo-1456735190827-d1262f71b8a3?w=800&q=80",
+                   "https://images.unsplash.com/photo-1531346878377-a5be20888e57?w=800&q=80"],
+}
+
 _RAW_BUSINESSES = [
     # ── Bhopal (8) ────────────────────────────────────────────────────────────
     {
@@ -376,6 +393,7 @@ def build_businesses() -> list:
             "created_at": rdt(60, 180),
             **_BIZ_TEMPLATE,
             **raw,
+            "images": CATEGORY_IMAGES.get(raw["category"], []),
         }
         result.append(doc)
     return result
