@@ -1,11 +1,19 @@
 from typing import List, Optional
+from datetime import datetime
+from bson import ObjectId
 from fastapi import APIRouter, Depends, status, HTTPException, Query
+from pydantic import BaseModel
 from app.schemas.post import PostCreate, PostResponse
 from app.services.post_service import PostService
 from app.services.business_service import BusinessService
-from app.core.dependencies import get_current_business_owner, get_optional_user
+from app.core.dependencies import get_current_business_owner, get_optional_user, get_current_user
 from app.models.user import UserModel
+from app.config.database import get_database
 from app.utils.responses import ResponseModel
+
+
+class CommentCreate(BaseModel):
+    text: str
 
 router = APIRouter()
 
@@ -39,3 +47,34 @@ async def get_all_feed_posts(
     else:
         posts = await PostService.get_all_posts()
     return ResponseModel.success(data=posts)
+
+
+@router.post("/{post_id}/comments", status_code=status.HTTP_201_CREATED)
+async def add_comment(
+    post_id: str,
+    body: CommentCreate,
+    current_user: UserModel = Depends(get_current_user),
+):
+    if not body.text.strip():
+        raise HTTPException(status_code=400, detail="Comment cannot be empty")
+
+    db = get_database()
+    if not ObjectId.is_valid(post_id):
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    comment = {
+        "id": str(ObjectId()),
+        "user_id": str(current_user.id),
+        "user_name": current_user.name,
+        "text": body.text.strip(),
+        "created_at": datetime.utcnow().isoformat(),
+    }
+
+    result = await db.posts.update_one(
+        {"_id": ObjectId(post_id)},
+        {"$push": {"comments": comment}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    return ResponseModel.success(data=comment, message="Comment added", status_code=201)

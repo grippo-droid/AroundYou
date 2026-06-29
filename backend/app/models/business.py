@@ -25,6 +25,7 @@ class BusinessModel(BaseModel):
     timings: List[Dict[str, str]] = []
     images: List[str] = []
     services: List[str] = []
+    verification_status: str = "pending"  # pending | approved | rejected
     is_verified: bool = False
     is_active: bool = True
     rating: float = 0.0

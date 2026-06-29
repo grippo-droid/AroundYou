@@ -64,7 +64,7 @@ const AddBusiness = () => {
             };
 
             await createBusiness(payload);
-            toast.success("Business added successfully!");
+            toast.success("Business submitted! It will go live once our team verifies it.");
             navigate("/dashboard");
         } catch (error: any) {
             toast.error(error.response?.data?.message || "Failed to add business");

@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Response, status, Depends, HTTPException
+from pydantic import BaseModel
+from typing import Optional
 from app.schemas.user import UserCreate, UserLogin, UserResponse, Token
 from app.schemas.otp import SendOtpRequest, LoginOtpRequest, RegisterOtpRequest
 from app.services.auth_service import AuthService
@@ -99,6 +101,53 @@ async def register_with_otp(response: Response, body: RegisterOtpRequest):
         data={"access_token": token, "token_type": "bearer"},
         message="Account created successfully",
         status_code=201,
+    )
+
+
+class AdminRegisterRequest(BaseModel):
+    name: str
+    phone: str
+    password: str
+    admin_secret: str
+
+
+@router.post("/admin/register", status_code=status.HTTP_201_CREATED)
+async def admin_register(response: Response, body: AdminRegisterRequest):
+    if body.admin_secret != settings.ADMIN_SECRET_KEY:
+        raise HTTPException(status_code=403, detail="Invalid admin secret key")
+
+    db = get_database()
+    phone = body.phone.replace(" ", "").strip()
+
+    if await db.users.find_one({"phone": phone}):
+        raise HTTPException(status_code=409, detail="Phone number already registered")
+
+    from app.core.security import get_password_hash
+    from app.models.user import UserModel as _UserModel
+
+    new_user = _UserModel(
+        name=body.name.strip(),
+        phone=phone,
+        password_hash=get_password_hash(body.password),
+        role="admin",
+        is_verified=True,
+    )
+    result = await db.users.insert_one(new_user.model_dump(by_alias=True, exclude={"id"}))
+    token = create_access_token_for(str(result.inserted_id), "admin")
+    _set_auth_cookie(response, token)
+    return ResponseModel.success(
+        data={"access_token": token, "token_type": "bearer"},
+        message="Admin account created successfully",
+        status_code=201,
+    )
+
+
+def create_access_token_for(user_id: str, role: str) -> str:
+    from datetime import timedelta
+    from app.core.jwt import create_access_token
+    return create_access_token(
+        data={"sub": user_id, "role": role},
+        expires_delta=timedelta(minutes=settings.JWT_EXPIRE_MINUTES),
     )
 
 

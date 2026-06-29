@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { MapPin, CheckCircle, Clock, Bookmark, Star } from "lucide-react";
+import { MapPin, BadgeCheck, Clock, Bookmark, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -37,7 +37,7 @@ const BusinessCard = ({ business }: BusinessCardProps) => {
         {/* Bottom gradient for contrast */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/5 to-transparent" />
 
-        {/* Top-left: open/closed badge */}
+        {/* Top-left: open/closed + pending badge */}
         <div className="absolute top-3 left-3 flex gap-1.5">
           <Badge
             variant={business.isOpen ? "default" : "secondary"}
@@ -46,13 +46,18 @@ const BusinessCard = ({ business }: BusinessCardProps) => {
             <Clock className="h-3 w-3 mr-1" />
             {business.isOpen ? "Open" : "Closed"}
           </Badge>
+          {!business.isVerified && business.verificationStatus === "pending" && (
+            <Badge className="bg-amber-500/90 text-white text-xs shadow-md">
+              Pending
+            </Badge>
+          )}
         </div>
 
         {/* Top-right: verified + bookmark */}
         <div className="absolute top-3 right-3 flex gap-2 items-center">
           {business.isVerified && (
             <Badge className="bg-primary/90 text-primary-foreground text-xs shadow-md">
-              <CheckCircle className="h-3 w-3 mr-1" />
+              <BadgeCheck className="h-3 w-3 mr-1" />
               Verified
             </Badge>
           )}
@@ -80,8 +85,11 @@ const BusinessCard = ({ business }: BusinessCardProps) => {
       {/* Info */}
       <div className="p-4">
         <div className="flex items-start justify-between gap-2 mb-2">
-          <h3 className="font-display font-semibold text-base leading-tight group-hover:text-primary transition-colors">
+          <h3 className="font-display font-semibold text-base leading-tight group-hover:text-primary transition-colors flex items-center gap-1">
             {business.name}
+            {business.isVerified && (
+              <BadgeCheck className="h-4 w-4 text-primary shrink-0" />
+            )}
           </h3>
           <Badge variant="outline" className="text-xs font-normal shrink-0">
             {business.category}

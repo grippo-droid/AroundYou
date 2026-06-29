@@ -11,6 +11,7 @@ export interface Business {
   distance: string;
   isOpen: boolean;
   isVerified: boolean;
+  verificationStatus: "pending" | "approved" | "rejected";
   phone: string;
   whatsapp: string;
   timings: { day: string; hours: string }[];
@@ -108,6 +109,8 @@ export interface Review {
   rating: number;
   text: string;
   createdAt: string;
+  ownerReply?: string;
+  ownerReplyAt?: string;
 }
 
 export interface Deal {

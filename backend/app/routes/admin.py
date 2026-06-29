@@ -9,6 +9,8 @@ from pydantic import BaseModel
 from app.config.database import get_database
 from app.core.dependencies import get_current_user
 from app.models.user import UserModel
+from app.services.business_service import BusinessService
+from app.services.notification_service import NotificationService
 from app.utils.responses import ResponseModel
 
 router = APIRouter()
@@ -26,6 +28,10 @@ class RoleUpdate(BaseModel):
 
 class StatusUpdate(BaseModel):
     is_active: bool
+
+
+class VerifyAction(BaseModel):
+    action: str  # "approve" | "reject"
 
 
 # ── Stats ─────────────────────────────────────────────────────────────────────
@@ -133,6 +139,9 @@ async def list_businesses(
 
     for b in raw:
         b["_id"] = str(b["_id"])
+        b.setdefault("is_active", True)
+        b.setdefault("is_verified", False)
+        b.setdefault("verification_status", "approved" if b.get("is_verified") else "pending")
 
     return ResponseModel.success(data={"businesses": raw, "total": total})
 
@@ -155,6 +164,87 @@ async def update_business_status(
         raise HTTPException(status_code=404, detail="Business not found")
 
     return ResponseModel.success(message="Status updated")
+
+
+# ── Verification ─────────────────────────────────────────────────────────────
+
+@router.get("/verification-queue")
+async def get_verification_queue(current_user: UserModel = Depends(require_admin)):
+    db = get_database()
+    pipeline = [
+        {"$match": {"verification_status": "pending"}},
+        {"$sort": {"created_at": -1}},
+        {
+            "$lookup": {
+                "from": "users",
+                "let": {"oid_str": "$owner_id"},
+                "pipeline": [
+                    {"$match": {"$expr": {"$eq": [{"$toString": "$_id"}, "$$oid_str"]}}}
+                ],
+                "as": "owner",
+            }
+        },
+        {"$unwind": {"path": "$owner", "preserveNullAndEmptyArrays": True}},
+        {
+            "$project": {
+                "_id": 1,
+                "name": 1,
+                "category": 1,
+                "address": 1,
+                "city": 1,
+                "owner_id": 1,
+                "verification_status": 1,
+                "created_at": 1,
+                "owner_name": "$owner.name",
+                "owner_phone": "$owner.phone",
+            }
+        },
+    ]
+    raw = await db.businesses.aggregate(pipeline).to_list(length=100)
+    for b in raw:
+        b["_id"] = str(b["_id"])
+    return ResponseModel.success(data={"businesses": raw, "total": len(raw)})
+
+
+@router.put("/businesses/{business_id}/verify")
+async def verify_business(
+    business_id: str,
+    body: VerifyAction,
+    current_user: UserModel = Depends(require_admin),
+):
+    if body.action not in ("approve", "reject"):
+        raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")
+
+    db = get_database()
+    if not ObjectId.is_valid(business_id):
+        raise HTTPException(status_code=404, detail="Business not found")
+
+    business = await db.businesses.find_one({"_id": ObjectId(business_id)})
+    if not business:
+        raise HTTPException(status_code=404, detail="Business not found")
+
+    owner_id = business.get("owner_id", "")
+
+    if body.action == "approve":
+        updated = await BusinessService.approve_business(business_id)
+        await NotificationService.create_notification(
+            user_id=owner_id,
+            type="business_approved",
+            title="Business Verified!",
+            body="Congratulations! Your business listing has been approved and is now live.",
+            related_id=business_id,
+        )
+    else:
+        updated = await BusinessService.reject_business(business_id)
+        await NotificationService.create_notification(
+            user_id=owner_id,
+            type="business_rejected",
+            title="Business Not Approved",
+            body="Your business listing was not approved. Please contact support for details.",
+            related_id=business_id,
+        )
+
+    return ResponseModel.success(data=updated, message=f"Business {body.action}d successfully")
 
 
 # ── Reviews ───────────────────────────────────────────────────────────────────

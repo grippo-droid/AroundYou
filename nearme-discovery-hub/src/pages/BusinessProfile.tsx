@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { getBusinessById, getReviewsByBusiness, getBusinessJobs, createReview, fetchBusinessDeals, submitApplication, getMyAppliedJobIds, followBusiness } from "@/services/api";
-import type { ApplicationCreateData } from "@/services/api";
-import { Phone, MessageCircle, Navigation, CheckCircle, MapPin, Heart, Flag, Clock, Star, Briefcase, Bookmark, Tag, CalendarDays, Loader2, Send } from "lucide-react";
+import { getBusinessById, getReviewsByBusiness, getBusinessJobs, createReview, replyToReview, fetchBusinessDeals, submitApplication, getMyAppliedJobIds, followBusiness, submitReport } from "@/services/api";
+import type { ApplicationCreateData, ReportReason } from "@/services/api";
+import { Phone, MessageCircle, Navigation, BadgeCheck, MapPin, Heart, Flag, Clock, Star, Briefcase, Bookmark, Tag, CalendarDays, Loader2, Send, CornerDownRight } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { haversineDistance, formatDistance } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -44,6 +44,17 @@ const BusinessProfile = () => {
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
+
+  // ── Owner reply state ─────────────────────────────────────────────────────
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [replySubmitting, setReplySubmitting] = useState(false);
+
+  // ── Report state ──────────────────────────────────────────────────────────
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState<ReportReason>("incorrect_info");
+  const [reportNote, setReportNote] = useState("");
+  const [reportSubmitting, setReportSubmitting] = useState(false);
 
   // ── Job application state ─────────────────────────────────────────────────
   const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set());
@@ -93,7 +104,15 @@ const BusinessProfile = () => {
   };
 
   const handleSubmitReview = async () => {
-    if (!id || reviewRating === 0 || reviewText.trim().length < 10) return;
+    if (!id) return;
+    if (reviewRating === 0) {
+      toast.error("Please select a star rating");
+      return;
+    }
+    if (reviewText.trim().length < 10) {
+      toast.error("Review must be at least 10 characters");
+      return;
+    }
     setSubmittingReview(true);
     try {
       const newReview = await createReview(id, { rating: reviewRating, text: reviewText.trim() });
@@ -106,6 +125,22 @@ const BusinessProfile = () => {
       toast.error(detail || "Failed to submit review");
     } finally {
       setSubmittingReview(false);
+    }
+  };
+
+  const handleSubmitReply = async (reviewId: string) => {
+    if (!replyText.trim()) return;
+    setReplySubmitting(true);
+    try {
+      const updated = await replyToReview(reviewId, replyText.trim());
+      setReviews((prev) => prev.map((r) => (r.id === reviewId ? updated : r)));
+      setReplyingToId(null);
+      setReplyText("");
+      toast.success("Reply posted!");
+    } catch {
+      toast.error("Failed to post reply");
+    } finally {
+      setReplySubmitting(false);
     }
   };
 
@@ -138,6 +173,22 @@ const BusinessProfile = () => {
       }
     } finally {
       setApplySubmitting(false);
+    }
+  };
+
+  const handleSubmitReport = async () => {
+    if (!id) return;
+    setReportSubmitting(true);
+    try {
+      await submitReport(id, reportReason, reportNote.trim() || undefined);
+      toast.success("Report submitted. Thank you for helping keep our platform safe.");
+      setReportOpen(false);
+      setReportNote("");
+      setReportReason("incorrect_info");
+    } catch {
+      toast.error("Failed to submit report. Please try again.");
+    } finally {
+      setReportSubmitting(false);
     }
   };
 
@@ -221,7 +272,12 @@ const BusinessProfile = () => {
               <h1 className="font-display text-2xl md:text-3xl font-bold">{business.name}</h1>
               {business.isVerified && (
                 <Badge className="bg-primary text-primary-foreground">
-                  <CheckCircle className="h-3 w-3 mr-1" />Verified
+                  <BadgeCheck className="h-3 w-3 mr-1" />Verified
+                </Badge>
+              )}
+              {!business.isVerified && business.verificationStatus === "pending" && (
+                <Badge className="bg-amber-100 text-amber-700 border border-amber-300 dark:bg-amber-900/30 dark:text-amber-400">
+                  <Clock className="h-3 w-3 mr-1" />Verification Pending
                 </Badge>
               )}
             </div>
@@ -280,7 +336,7 @@ const BusinessProfile = () => {
             <Bookmark className={`h-4 w-4 mr-1 ${business && isBookmarked(business._id) ? "fill-primary text-primary" : ""}`} />
             {business && isBookmarked(business._id) ? "Saved" : "Save"}
           </Button>
-          <Button variant="ghost" size="sm" className="text-muted-foreground">
+          <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setReportOpen(true)}>
             <Flag className="h-4 w-4 mr-1" />Report
           </Button>
           {!business.isVerified && (
@@ -402,36 +458,45 @@ const BusinessProfile = () => {
             {user ? (
               <div className="border rounded-xl p-4 bg-card space-y-3">
                 <p className="text-sm font-semibold">Write a Review</p>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setReviewRating(i + 1)}
-                      className="focus:outline-none"
-                    >
-                      <Star
-                        className={`h-6 w-6 transition-colors ${
-                          i < reviewRating ? "text-amber-500 fill-amber-500" : "text-muted-foreground"
-                        }`}
-                      />
-                    </button>
-                  ))}
-                  {reviewRating > 0 && (
-                    <span className="ml-2 text-xs text-muted-foreground">{reviewRating}/5</span>
-                  )}
+                <div>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setReviewRating(i + 1)}
+                        className="focus:outline-none"
+                      >
+                        <Star
+                          className={`h-6 w-6 transition-colors ${
+                            i < reviewRating ? "text-amber-500 fill-amber-500" : "text-muted-foreground"
+                          }`}
+                        />
+                      </button>
+                    ))}
+                    {reviewRating > 0 ? (
+                      <span className="ml-2 text-xs text-muted-foreground">{reviewRating}/5</span>
+                    ) : (
+                      <span className="ml-2 text-xs text-muted-foreground">Tap a star to rate</span>
+                    )}
+                  </div>
                 </div>
-                <Textarea
-                  placeholder="Share your experience (min 10 characters)…"
-                  value={reviewText}
-                  onChange={(e) => setReviewText(e.target.value)}
-                  className="resize-none"
-                  rows={3}
-                />
+                <div className="space-y-1">
+                  <Textarea
+                    placeholder="Share your experience…"
+                    value={reviewText}
+                    onChange={(e) => setReviewText(e.target.value)}
+                    className="resize-none"
+                    rows={3}
+                  />
+                  <p className={`text-xs text-right ${reviewText.trim().length > 0 && reviewText.trim().length < 10 ? "text-destructive" : "text-muted-foreground"}`}>
+                    {reviewText.trim().length} / 10 min characters
+                  </p>
+                </div>
                 <Button
                   size="sm"
                   onClick={handleSubmitReview}
-                  disabled={submittingReview || reviewRating === 0 || reviewText.trim().length < 10}
+                  disabled={submittingReview}
                 >
                   {submittingReview ? "Submitting…" : "Submit Review"}
                 </Button>
@@ -444,31 +509,91 @@ const BusinessProfile = () => {
             )}
 
             {/* Review list */}
-            <div className="space-y-4">
-              {reviews.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">No reviews yet. Be the first!</p>
-              ) : (
-                reviews.map((r) => (
-                  <div key={r.id} className="border rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
-                        {r.userName[0]}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{r.userName}</p>
-                        <div className="flex items-center gap-1">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <Star key={i} className={`h-3 w-3 ${i < r.rating ? "text-amber-500 fill-amber-500" : "text-muted"}`} />
-                          ))}
+            {(() => {
+              const isOwner = !!user && !!business && user._id === business.ownerId;
+              return (
+                <div className="space-y-4">
+                  {reviews.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-6">No reviews yet. Be the first!</p>
+                  ) : (
+                    reviews.map((r) => (
+                      <div key={r.id} className="border rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                            {r.userName[0]}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{r.userName}</p>
+                            <div className="flex items-center gap-1">
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <Star key={i} className={`h-3 w-3 ${i < r.rating ? "text-amber-500 fill-amber-500" : "text-muted"}`} />
+                              ))}
+                            </div>
+                          </div>
+                          <span className="text-xs text-muted-foreground ml-auto">{r.createdAt}</span>
                         </div>
+                        <p className="text-sm text-muted-foreground">{r.text}</p>
+
+                        {/* Owner reply */}
+                        {r.ownerReply && (
+                          <div className="mt-3 ml-3 pl-3 border-l-2 border-primary/40 bg-muted/50 rounded-r-lg p-3">
+                            <p className="text-xs font-semibold text-primary mb-1 flex items-center gap-1">
+                              <CornerDownRight className="h-3 w-3" />
+                              Owner Response
+                              {r.ownerReplyAt && (
+                                <span className="font-normal text-muted-foreground ml-1">· {r.ownerReplyAt}</span>
+                              )}
+                            </p>
+                            <p className="text-sm text-muted-foreground">{r.ownerReply}</p>
+                          </div>
+                        )}
+
+                        {/* Reply button / inline form for business owner */}
+                        {isOwner && !r.ownerReply && (
+                          replyingToId === r.id ? (
+                            <div className="mt-3 space-y-2">
+                              <Textarea
+                                value={replyText}
+                                onChange={(e) => setReplyText(e.target.value)}
+                                placeholder="Write a response to this review…"
+                                rows={2}
+                                className="resize-none text-sm"
+                              />
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleSubmitReply(r.id)}
+                                  disabled={replySubmitting || !replyText.trim()}
+                                >
+                                  {replySubmitting && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
+                                  {replySubmitting ? "Posting…" : "Post Reply"}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => { setReplyingToId(null); setReplyText(""); }}
+                                  disabled={replySubmitting}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              className="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                              onClick={() => { setReplyingToId(r.id); setReplyText(""); }}
+                            >
+                              <CornerDownRight className="h-3 w-3" />
+                              Reply
+                            </button>
+                          )
+                        )}
                       </div>
-                      <span className="text-xs text-muted-foreground ml-auto">{r.createdAt}</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{r.text}</p>
-                  </div>
-                ))
-              )}
-            </div>
+                    ))
+                  )}
+                </div>
+              );
+            })()}
           </TabsContent>
 
           <TabsContent value="book" className="mt-6">
@@ -590,6 +715,51 @@ const BusinessProfile = () => {
             >
               {applySubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {applySubmitting ? "Submitting…" : "Submit Application"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Report Dialog ── */}
+      <Dialog open={reportOpen} onOpenChange={(open) => { if (!open) setReportOpen(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Flag className="h-4 w-4 text-destructive" />
+              Report Business
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Reason</Label>
+              <select
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value as ReportReason)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="incorrect_info">Incorrect information</option>
+                <option value="closed_permanently">Permanently closed</option>
+                <option value="spam_or_fake">Spam or fake listing</option>
+                <option value="inappropriate_content">Inappropriate content</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Additional details <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Textarea
+                placeholder="Describe the issue…"
+                value={reportNote}
+                onChange={(e) => setReportNote(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReportOpen(false)} disabled={reportSubmitting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleSubmitReport} disabled={reportSubmitting}>
+              {reportSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting…</> : "Submit Report"}
             </Button>
           </DialogFooter>
         </DialogContent>

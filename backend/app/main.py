@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from app.config.settings import settings
 from app.config.database import db
-from app.routes import auth, users, businesses, posts, jobs, messages, reviews, bookings, uploads, deals, applications, notifications, follows, admin
+from app.routes import auth, users, businesses, posts, jobs, messages, reviews, bookings, uploads, deals, applications, notifications, follows, admin, reports
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -44,6 +44,7 @@ app.include_router(applications.router, prefix="/applications", tags=["Applicati
 app.include_router(notifications.router, prefix="/notifications", tags=["Notifications"])
 app.include_router(follows.router, tags=["Follows"])
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])
+app.include_router(reports.router, prefix="/reports", tags=["Reports"])
 
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse

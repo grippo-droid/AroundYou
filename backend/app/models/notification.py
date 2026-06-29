@@ -7,7 +7,7 @@ from app.utils.object_id import PyObjectId
 class NotificationModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     user_id: str
-    type: str  # booking_confirmed | booking_cancelled | booking_completed | new_review | application_status
+    type: str  # booking_confirmed | booking_cancelled | booking_completed | new_review | application_status | business_approved | business_rejected
     title: str
     body: str
     is_read: bool = False

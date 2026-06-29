@@ -118,6 +118,7 @@ function mapApiBusinessToBusiness(apiBus: ApiBusRaw): Business {
     city: apiBus.city,
     distance: "1.2 km",
     isVerified: apiBus.is_verified,
+    verificationStatus: apiBus.verification_status ?? (apiBus.is_verified ? "approved" : "pending"),
     phone: apiBus.contact_number,
     whatsapp: apiBus.whatsapp || "",
     timings: apiBus.timings,
@@ -559,6 +560,7 @@ export interface AdminBusiness {
   city: string;
   is_active: boolean;
   is_verified: boolean;
+  verification_status: "pending" | "approved" | "rejected";
   rating: number;
   review_count: number;
   created_at: string;
@@ -570,6 +572,19 @@ export interface AdminReview {
   user_name: string;
   rating: number;
   text: string;
+  created_at: string;
+}
+
+export interface AdminVerificationBusiness {
+  _id: string;
+  name: string;
+  category: string;
+  address: string;
+  city: string;
+  owner_id: string;
+  owner_name?: string;
+  owner_phone?: string;
+  verification_status: "pending" | "approved" | "rejected";
   created_at: string;
 }
 
@@ -605,12 +620,21 @@ export async function deleteAdminReview(reviewId: string): Promise<void> {
   await apiClient.delete(`/admin/reviews/${reviewId}`);
 }
 
+export async function fetchVerificationQueue(): Promise<{ businesses: AdminVerificationBusiness[]; total: number }> {
+  const response = await apiClient.get<ApiResponse<{ businesses: AdminVerificationBusiness[]; total: number }>>("/admin/verification-queue");
+  return response.data.data;
+}
+
+export async function approveOrRejectBusiness(businessId: string, action: "approve" | "reject"): Promise<void> {
+  await apiClient.put(`/admin/businesses/${businessId}/verify`, { action });
+}
+
 // ─── Notifications ────────────────────────────────────────────────────────────
 
 export interface ApiNotification {
   _id: string;
   user_id: string;
-  type: "booking_confirmed" | "booking_cancelled" | "booking_completed" | "new_review" | "application_status";
+  type: "booking_confirmed" | "booking_cancelled" | "booking_completed" | "new_review" | "application_status" | "business_approved" | "business_rejected";
   title: string;
   body: string;
   is_read: boolean;
@@ -636,6 +660,31 @@ export async function markAllNotificationsRead(): Promise<void> {
   await apiClient.put("/notifications/read-all");
 }
 
+// ─── Admin auth ──────────────────────────────────────────────────────────────
+
+export async function adminRegister(data: {
+  name: string;
+  phone: string;
+  password: string;
+  admin_secret: string;
+}): Promise<{ access_token: string }> {
+  const response = await apiClient.post<ApiResponse<{ access_token: string }>>("/auth/admin/register", data);
+  return response.data.data;
+}
+
+// ─── Reports ─────────────────────────────────────────────────────────────────
+
+export type ReportReason =
+  | "incorrect_info"
+  | "closed_permanently"
+  | "spam_or_fake"
+  | "inappropriate_content"
+  | "other";
+
+export async function submitReport(businessId: string, reason: ReportReason, note?: string): Promise<void> {
+  await apiClient.post(`/reports/business/${businessId}`, { reason, note });
+}
+
 // ─── Uploads ──────────────────────────────────────────────────────────────────
 
 export async function uploadImage(file: File): Promise<string> {
@@ -659,6 +708,19 @@ export interface PostCreateData {
 
 export async function createPost(businessId: string, data: PostCreateData): Promise<ApiPost> {
   const response = await apiClient.post<ApiResponse<ApiPost>>(`/posts/${businessId}`, data);
+  return response.data.data;
+}
+
+export interface ApiComment {
+  id: string;
+  user_id: string;
+  user_name: string;
+  text: string;
+  created_at: string;
+}
+
+export async function addComment(postId: string, text: string): Promise<ApiComment> {
+  const response = await apiClient.post<ApiResponse<ApiComment>>(`/posts/${postId}/comments`, { text });
   return response.data.data;
 }
 

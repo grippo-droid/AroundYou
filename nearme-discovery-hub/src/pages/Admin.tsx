@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   Users, Store, Star, CalendarCheck, TrendingUp, ShieldAlert,
-  Search, Trash2, ChevronDown,
+  Search, Trash2, ChevronDown, BadgeCheck, XCircle, Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +25,9 @@ import {
   getAdminStats, getAdminUsers, updateAdminUserRole,
   getAdminBusinesses, updateAdminBusinessStatus,
   getAdminReviews, deleteAdminReview,
+  fetchVerificationQueue, approveOrRejectBusiness,
   type AdminStats, type AdminUser, type AdminBusiness, type AdminReview,
+  type AdminVerificationBusiness,
 } from "@/services/api";
 
 // ─── Stat card ───────────────────────────────────────────────────────────────
@@ -107,6 +109,13 @@ const Admin = () => {
   const [reviewsSkip, setReviewsSkip] = useState(0);
   const [reviewsLoading, setReviewsLoading] = useState(false);
 
+  // ── verification queue
+  const [queue, setQueue] = useState<AdminVerificationBusiness[]>([]);
+  const [queueTotal, setQueueTotal] = useState(0);
+  const [queueLoading, setQueueLoading] = useState(false);
+  const [verifyTarget, setVerifyTarget] = useState<{ id: string; action: "approve" | "reject"; name: string } | null>(null);
+  const [verifying, setVerifying] = useState(false);
+
   // ── delete dialog
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -170,6 +179,20 @@ const Admin = () => {
   }, [toast]);
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
+  const loadQueue = useCallback(async () => {
+    setQueueLoading(true);
+    try {
+      const data = await fetchVerificationQueue();
+      setQueue(data.businesses);
+      setQueueTotal(data.total);
+    } catch {
+      toast({ title: "Failed to load verification queue", variant: "destructive" });
+    } finally {
+      setQueueLoading(false);
+    }
+  }, [toast]);
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const loadReviews = useCallback(async (skip: number) => {
     setReviewsLoading(true);
     try {
@@ -192,6 +215,8 @@ const Admin = () => {
   useEffect(() => { loadBusinesses(0, ""); }, [loadBusinesses]);
   // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => { loadReviews(0); }, [loadReviews]);
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => { loadQueue(); }, [loadQueue]);
 
   // ── search debounce
   // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -225,8 +250,41 @@ const Admin = () => {
       await updateAdminBusinessStatus(bizId, next);
       toast({ title: next ? "Business activated" : "Business deactivated" });
     } catch {
+      // revert optimistic update on failure
       setBusinesses((prev) => prev.map((b) => b._id === bizId ? { ...b, is_active: current } : b));
       toast({ title: "Failed to update status", variant: "destructive" });
+    }
+  };
+
+  // ── inline business verify (from businesses tab)
+  const handleInlineVerify = async (bizId: string, name: string) => {
+    try {
+      await approveOrRejectBusiness(bizId, "approve");
+      setBusinesses((prev) => prev.map((b) =>
+        b._id === bizId ? { ...b, verification_status: "approved", is_verified: true } : b
+      ));
+      setQueue((prev) => prev.filter((b) => b._id !== bizId));
+      setQueueTotal((t) => Math.max(0, t - 1));
+      toast({ title: `${name} approved and verified` });
+    } catch {
+      toast({ title: "Failed to approve business", variant: "destructive" });
+    }
+  };
+
+  // ── verification
+  const handleVerify = async () => {
+    if (!verifyTarget) return;
+    setVerifying(true);
+    try {
+      await approveOrRejectBusiness(verifyTarget.id, verifyTarget.action);
+      setQueue((prev) => prev.filter((b) => b._id !== verifyTarget.id));
+      setQueueTotal((t) => t - 1);
+      toast({ title: verifyTarget.action === "approve" ? "Business approved" : "Business rejected" });
+    } catch {
+      toast({ title: "Action failed", variant: "destructive" });
+    } finally {
+      setVerifying(false);
+      setVerifyTarget(null);
     }
   };
 
@@ -269,12 +327,94 @@ const Admin = () => {
       </div>
 
       {/* ── Tabs ── */}
-      <Tabs defaultValue="users">
+      <Tabs defaultValue="verification">
         <TabsList>
+          <TabsTrigger value="verification" className="gap-1.5">
+            Verification Queue
+            {queueTotal > 0 && (
+              <span className="ml-1 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold">
+                {queueTotal}
+              </span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="businesses">Businesses</TabsTrigger>
           <TabsTrigger value="reviews">Reviews</TabsTrigger>
         </TabsList>
+
+        {/* ── Verification Queue tab ── */}
+        <TabsContent value="verification" className="mt-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">{queueTotal} pending</span>
+          </div>
+
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Business</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>City</TableHead>
+                    <TableHead>Owner</TableHead>
+                    <TableHead>Submitted</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {queue.map((b) => (
+                    <TableRow key={b._id}>
+                      <TableCell>
+                        <div className="font-medium">{b.name}</div>
+                        <div className="text-xs text-muted-foreground truncate max-w-[200px]">{b.address}</div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="font-normal">{b.category}</Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{b.city}</TableCell>
+                      <TableCell>
+                        <div className="text-sm">{b.owner_name ?? "—"}</div>
+                        <div className="text-xs text-muted-foreground">{b.owner_phone ?? ""}</div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground whitespace-nowrap">
+                        {fmt(b.created_at)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
+                            onClick={() => setVerifyTarget({ id: b._id, action: "approve", name: b.name })}
+                          >
+                            <BadgeCheck className="h-3.5 w-3.5" />
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs text-destructive border-destructive/30 hover:bg-destructive/10 gap-1"
+                            onClick={() => setVerifyTarget({ id: b._id, action: "reject", name: b.name })}
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                            Reject
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {queue.length === 0 && !queueLoading && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                        <Clock className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                        No pending verifications
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* ── Users tab ── */}
         <TabsContent value="users" className="mt-6 space-y-4">
@@ -382,6 +522,7 @@ const Admin = () => {
                     <TableHead>Category</TableHead>
                     <TableHead>City</TableHead>
                     <TableHead>Rating</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Active</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -395,16 +536,35 @@ const Admin = () => {
                       <TableCell className="text-muted-foreground">{b.city}</TableCell>
                       <TableCell><Stars rating={b.rating} /></TableCell>
                       <TableCell>
+                        {b.verification_status === "approved" ? (
+                          <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 gap-1">
+                            <BadgeCheck className="h-3 w-3" /> Verified
+                          </Badge>
+                        ) : b.verification_status === "rejected" ? (
+                          <Badge className="bg-red-100 text-red-700 hover:bg-red-100 gap-1">
+                            <XCircle className="h-3 w-3" /> Rejected
+                          </Badge>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="h-6 text-xs px-2 bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
+                            onClick={() => handleInlineVerify(b._id, b.name)}
+                          >
+                            <BadgeCheck className="h-3 w-3" /> Approve
+                          </Button>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <Switch
-                          checked={b.is_active}
-                          onCheckedChange={() => handleStatusToggle(b._id, b.is_active)}
+                          checked={b.is_active ?? true}
+                          onCheckedChange={() => handleStatusToggle(b._id, b.is_active ?? true)}
                         />
                       </TableCell>
                     </TableRow>
                   ))}
                   {businesses.length === 0 && !bizLoading && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         No businesses found
                       </TableCell>
                     </TableRow>
@@ -496,6 +656,38 @@ const Admin = () => {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* ── Verify confirmation dialog ── */}
+      <Dialog open={!!verifyTarget} onOpenChange={(open) => { if (!open) setVerifyTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {verifyTarget?.action === "approve" ? "Approve business?" : "Reject business?"}
+            </DialogTitle>
+            <DialogDescription>
+              {verifyTarget?.action === "approve"
+                ? `"${verifyTarget?.name}" will be marked as verified and listed publicly. The owner will be notified.`
+                : `"${verifyTarget?.name}" will be rejected and hidden from listings. The owner will be notified.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVerifyTarget(null)}>Cancel</Button>
+            {verifyTarget?.action === "approve" ? (
+              <Button
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={verifying}
+                onClick={handleVerify}
+              >
+                {verifying ? "Approving…" : "Approve"}
+              </Button>
+            ) : (
+              <Button variant="destructive" disabled={verifying} onClick={handleVerify}>
+                {verifying ? "Rejecting…" : "Reject"}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Delete confirmation dialog ── */}
       <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>

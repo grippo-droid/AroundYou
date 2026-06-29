@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     CORS_ORIGINS: List[str] = ["http://localhost:8080", "http://localhost:5173"]
 
+    # ── Admin ─────────────────────────────────────────────────────────────────
+    # Set a strong secret in .env; anyone with this key can create an admin account
+    ADMIN_SECRET_KEY: str = "aroundyou-admin-secret"
+
     # ── SMS / OTP ──────────────────────────────────────────────────────────────
     # Set to "msg91" or "twilio" for production; "console" prints OTP to server log
     SMS_PROVIDER: str = "console"

@@ -26,6 +26,8 @@ export interface Business {
     images: string[];
     services: string[];
     is_verified: boolean;
+    is_active: boolean;
+    verification_status: "pending" | "approved" | "rejected";
     rating: number;
     review_count: number;
     followers: number;

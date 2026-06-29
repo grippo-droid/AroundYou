@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import {
     Plus, Store, CalendarDays, ImagePlus, Loader2,
     Eye, Star, Tag, Trash2, BookOpen, Clock, ChevronRight,
+    BadgeCheck, AlertCircle, ShieldCheck, XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -253,6 +254,76 @@ const BusinessDashboard = () => {
     }
 
     if (busLoading) return <div className="p-8 text-center">Loading dashboard…</div>;
+
+    // ── Verification gate ─────────────────────────────────────────────────────
+    const hasApproved = businesses.some((b) => (b as any).verificationStatus === "approved");
+    const allRejected = businesses.length > 0 && businesses.every((b) => (b as any).verificationStatus === "rejected");
+    const hasPending  = businesses.some((b) => (b as any).verificationStatus === "pending");
+
+    if (businesses.length > 0 && !hasApproved) {
+        return (
+            <div className="container py-16 max-w-lg mx-auto text-center space-y-6">
+                {allRejected ? (
+                    <>
+                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-destructive/10 mx-auto">
+                            <XCircle className="h-8 w-8 text-destructive" />
+                        </div>
+                        <div className="space-y-2">
+                            <h2 className="text-2xl font-bold tracking-tight">Verification Not Approved</h2>
+                            <p className="text-muted-foreground">
+                                Your business listing was not approved. Please contact our support team for more details or submit a new listing.
+                            </p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                            <Button asChild variant="outline">
+                                <Link to="/add-business">Submit New Listing</Link>
+                            </Button>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 mx-auto">
+                            <ShieldCheck className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <div className="space-y-2">
+                            <h2 className="text-2xl font-bold tracking-tight">Verification in Progress</h2>
+                            <p className="text-muted-foreground">
+                                Your business has been submitted and is currently under review by our team. This usually takes 1–2 business days.
+                            </p>
+                        </div>
+
+                        {/* Status cards for each pending business */}
+                        <div className="space-y-3 text-left">
+                            {businesses.map((b) => (
+                                <div
+                                    key={(b as any)._id}
+                                    className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm"
+                                >
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
+                                        <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="font-semibold truncate">{(b as any).name}</p>
+                                        <p className="text-xs text-muted-foreground">{(b as any).city} · {(b as any).category}</p>
+                                    </div>
+                                    <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 shrink-0">
+                                        Pending
+                                    </Badge>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="rounded-xl border bg-muted/40 p-4 text-sm text-muted-foreground space-y-1.5 text-left">
+                            <p className="font-medium text-foreground">What happens next?</p>
+                            <p>• Our team will review your business details</p>
+                            <p>• You'll receive a notification once verified</p>
+                            <p>• Your full dashboard unlocks after approval</p>
+                        </div>
+                    </>
+                )}
+            </div>
+        );
+    }
 
     return (
         <div className="container py-8 space-y-8">
@@ -554,6 +625,25 @@ const BusinessDashboard = () => {
                                             <div className="w-full h-full flex items-center justify-center text-muted-foreground">No Image</div>
                                         )}
                                     </div>
+                                    {/* Verification status banner */}
+                                    {(business as any).verificationStatus === "pending" && (
+                                        <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-xs">
+                                            <Clock className="h-3.5 w-3.5 shrink-0" />
+                                            <span>Verification pending — awaiting admin review</span>
+                                        </div>
+                                    )}
+                                    {(business as any).verificationStatus === "approved" && (business as any).is_verified && (
+                                        <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-950/30 border-b border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 text-xs">
+                                            <BadgeCheck className="h-3.5 w-3.5 shrink-0" />
+                                            <span>Verified and live</span>
+                                        </div>
+                                    )}
+                                    {(business as any).verificationStatus === "rejected" && (
+                                        <div className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-950/30 border-b border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-xs">
+                                            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                                            <span>Not approved — contact support for details</span>
+                                        </div>
+                                    )}
                                     <CardHeader className="pb-2">
                                         <CardTitle>{business.name}</CardTitle>
                                         <CardDescription>{business.category}</CardDescription>

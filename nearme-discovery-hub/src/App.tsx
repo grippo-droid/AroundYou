@@ -20,6 +20,7 @@ import Messages from "./pages/Messages";
 import Profile from "./pages/Profile";
 import Feed from "./pages/Feed";
 import Admin from "./pages/Admin";
+import AdminLogin from "./pages/AdminLogin";
 import Bookings from "./pages/Bookings";
 import ManageAvailability from "./pages/ManageAvailability";
 import { AuthProvider } from "@/context/AuthContext";
@@ -53,6 +54,7 @@ const App = () => (
                   <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
                   <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
                   <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
+                  <Route path="/admin-login" element={<AdminLogin />} />
                   <Route path="/jobs" element={<JobListing />} />
                   <Route path="/bookings" element={<PrivateRoute><Bookings /></PrivateRoute>} />
                   <Route path="/business/:id/availability" element={<PrivateRoute><ManageAvailability /></PrivateRoute>} />
