@@ -620,6 +620,26 @@ export async function deleteAdminReview(reviewId: string): Promise<void> {
   await apiClient.delete(`/admin/reviews/${reviewId}`);
 }
 
+export interface AdminReport {
+  _id: string;
+  business_id: string;
+  business_name?: string;
+  reporter_name?: string;
+  reporter_phone?: string;
+  reason: string;
+  note?: string;
+  created_at: string;
+}
+
+export async function getAdminReports(params?: { skip?: number; limit?: number }): Promise<{ reports: AdminReport[]; total: number }> {
+  const response = await apiClient.get<ApiResponse<{ reports: AdminReport[]; total: number }>>("/admin/reports", { params });
+  return response.data.data;
+}
+
+export async function deleteAdminReport(reportId: string): Promise<void> {
+  await apiClient.delete(`/admin/reports/${reportId}`);
+}
+
 export async function fetchVerificationQueue(): Promise<{ businesses: AdminVerificationBusiness[]; total: number }> {
   const response = await apiClient.get<ApiResponse<{ businesses: AdminVerificationBusiness[]; total: number }>>("/admin/verification-queue");
   return response.data.data;

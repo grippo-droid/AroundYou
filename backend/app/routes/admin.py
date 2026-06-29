@@ -292,3 +292,76 @@ async def delete_review(
         )
 
     return ResponseModel.success(message="Review deleted")
+
+
+# ── Reports ───────────────────────────────────────────────────────────────────
+
+@router.get("/reports")
+async def list_reports(
+    skip: int = 0,
+    limit: int = 20,
+    current_user: UserModel = Depends(require_admin),
+):
+    db = get_database()
+    pipeline = [
+        {"$sort": {"created_at": -1}},
+        {"$skip": skip},
+        {"$limit": limit},
+        {
+            "$lookup": {
+                "from": "businesses",
+                "let": {"bid": "$business_id"},
+                "pipeline": [
+                    {"$match": {"$expr": {"$eq": [{"$toString": "$_id"}, "$$bid"]}}}
+                ],
+                "as": "business",
+            }
+        },
+        {"$unwind": {"path": "$business", "preserveNullAndEmptyArrays": True}},
+        {
+            "$lookup": {
+                "from": "users",
+                "let": {"rid": "$reporter_id"},
+                "pipeline": [
+                    {"$match": {"$expr": {"$eq": [{"$toString": "$_id"}, "$$rid"]}}}
+                ],
+                "as": "reporter",
+            }
+        },
+        {"$unwind": {"path": "$reporter", "preserveNullAndEmptyArrays": True}},
+        {
+            "$project": {
+                "_id": 1,
+                "business_id": 1,
+                "business_name": "$business.name",
+                "reporter_name": "$reporter.name",
+                "reporter_phone": "$reporter.phone",
+                "reason": 1,
+                "note": 1,
+                "created_at": 1,
+            }
+        },
+    ]
+    raw, total = await asyncio.gather(
+        db.reports.aggregate(pipeline).to_list(length=limit),
+        db.reports.count_documents({}),
+    )
+    for r in raw:
+        r["_id"] = str(r["_id"])
+    return ResponseModel.success(data={"reports": raw, "total": total})
+
+
+@router.delete("/reports/{report_id}")
+async def delete_report(
+    report_id: str,
+    current_user: UserModel = Depends(require_admin),
+):
+    db = get_database()
+    if not ObjectId.is_valid(report_id):
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    result = await db.reports.delete_one({"_id": ObjectId(report_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    return ResponseModel.success(message="Report dismissed")

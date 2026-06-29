@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import {
   Users, Store, Star, CalendarCheck, TrendingUp, ShieldAlert,
   Search, Trash2, ChevronDown, BadgeCheck, XCircle, Clock,
+  ShieldCheck, ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,8 +27,9 @@ import {
   getAdminBusinesses, updateAdminBusinessStatus,
   getAdminReviews, deleteAdminReview,
   fetchVerificationQueue, approveOrRejectBusiness,
+  getAdminReports, deleteAdminReport,
   type AdminStats, type AdminUser, type AdminBusiness, type AdminReview,
-  type AdminVerificationBusiness,
+  type AdminVerificationBusiness, type AdminReport,
 } from "@/services/api";
 
 // ─── Stat card ───────────────────────────────────────────────────────────────
@@ -120,6 +122,14 @@ const Admin = () => {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // ── reports
+  const [reports, setReports] = useState<AdminReport[]>([]);
+  const [reportsTotal, setReportsTotal] = useState(0);
+  const [reportsSkip, setReportsSkip] = useState(0);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportDeleteTarget, setReportDeleteTarget] = useState<string | null>(null);
+  const [reportDeleting, setReportDeleting] = useState(false);
+
   // ── access guard
   if (user?.role !== "admin") {
     return (
@@ -208,6 +218,21 @@ const Admin = () => {
   }, [toast]);
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
+  const loadReports = useCallback(async (skip: number) => {
+    setReportsLoading(true);
+    try {
+      const data = await getAdminReports({ skip, limit: PAGE });
+      setReports((prev) => skip === 0 ? data.reports : [...prev, ...data.reports]);
+      setReportsTotal(data.total);
+      setReportsSkip(skip + data.reports.length);
+    } catch {
+      toast({ title: "Failed to load reports", variant: "destructive" });
+    } finally {
+      setReportsLoading(false);
+    }
+  }, [toast]);
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => { loadStats(); }, [loadStats]);
   // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => { loadUsers(0, ""); }, [loadUsers]);
@@ -217,6 +242,8 @@ const Admin = () => {
   useEffect(() => { loadReviews(0); }, [loadReviews]);
   // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => { loadQueue(); }, [loadQueue]);
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => { loadReports(0); }, [loadReports]);
 
   // ── search debounce
   // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -305,6 +332,41 @@ const Admin = () => {
     }
   };
 
+  // ── report dismiss
+  const handleDismissReport = async () => {
+    if (!reportDeleteTarget) return;
+    setReportDeleting(true);
+    try {
+      await deleteAdminReport(reportDeleteTarget);
+      setReports((prev) => prev.filter((r) => r._id !== reportDeleteTarget));
+      setReportsTotal((t) => t - 1);
+      toast({ title: "Report dismissed" });
+    } catch {
+      toast({ title: "Failed to dismiss report", variant: "destructive" });
+    } finally {
+      setReportDeleting(false);
+      setReportDeleteTarget(null);
+    }
+  };
+
+  const REASON_LABELS: Record<string, string> = {
+    incorrect_info: "Incorrect Info",
+    closed_permanently: "Closed Permanently",
+    spam_or_fake: "Spam or Fake",
+    inappropriate_content: "Inappropriate Content",
+    other: "Other",
+  };
+
+  const reasonBadgeClass = (reason: string) => {
+    switch (reason) {
+      case "spam_or_fake": return "bg-red-100 text-red-700 hover:bg-red-100";
+      case "inappropriate_content": return "bg-orange-100 text-orange-700 hover:bg-orange-100";
+      case "incorrect_info": return "bg-amber-100 text-amber-700 hover:bg-amber-100";
+      case "closed_permanently": return "bg-slate-100 text-slate-700 hover:bg-slate-100";
+      default: return "bg-secondary text-secondary-foreground";
+    }
+  };
+
   const fmt = (iso: string) =>
     new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
@@ -340,6 +402,14 @@ const Admin = () => {
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="businesses">Businesses</TabsTrigger>
           <TabsTrigger value="reviews">Reviews</TabsTrigger>
+          <TabsTrigger value="reports" className="gap-1.5">
+            Reports
+            {reportsTotal > 0 && (
+              <span className="ml-1 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold">
+                {reportsTotal}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         {/* ── Verification Queue tab ── */}
@@ -655,6 +725,100 @@ const Admin = () => {
             </div>
           )}
         </TabsContent>
+
+        {/* ── Reports tab ── */}
+        <TabsContent value="reports" className="mt-6 space-y-4">
+          <span className="text-sm text-muted-foreground">{reportsTotal} reports total</span>
+
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Business</TableHead>
+                    <TableHead>Reported By</TableHead>
+                    <TableHead>Reason</TableHead>
+                    <TableHead>Note</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {reports.map((r) => (
+                    <TableRow key={r._id}>
+                      <TableCell>
+                        {r.business_name ? (
+                          <a
+                            href={`/business/${r.business_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 font-medium hover:underline text-primary"
+                          >
+                            {r.business_name}
+                            <ExternalLink className="h-3 w-3 shrink-0" />
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">Unknown</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">{r.reporter_name ?? "Anonymous"}</div>
+                        {r.reporter_phone && (
+                          <div className="text-xs text-muted-foreground">{r.reporter_phone}</div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={`font-normal ${reasonBadgeClass(r.reason)}`}>
+                          {REASON_LABELS[r.reason] ?? r.reason}
+                        </Badge>
+                      </TableCell>
+                      <TableCell
+                        className="text-muted-foreground max-w-[200px] truncate"
+                        title={r.note || undefined}
+                      >
+                        {r.note ? r.note.slice(0, 60) + (r.note.length > 60 ? "…" : "") : "—"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground whitespace-nowrap">
+                        {fmt(r.created_at)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => setReportDeleteTarget(r._id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {reports.length === 0 && !reportsLoading && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                        <ShieldCheck className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                        No reports yet
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {reportsSkip < reportsTotal && (
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={reportsLoading}
+                onClick={() => loadReports(reportsSkip)}
+              >
+                {reportsLoading ? "Loading…" : `Load more (${reportsTotal - reportsSkip} left)`}
+              </Button>
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
 
       {/* ── Verify confirmation dialog ── */}
@@ -703,6 +867,24 @@ const Admin = () => {
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
             <Button variant="destructive" disabled={deleting} onClick={handleDeleteReview}>
               {deleting ? "Deleting…" : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dismiss report dialog ── */}
+      <Dialog open={!!reportDeleteTarget} onOpenChange={(open) => { if (!open) setReportDeleteTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dismiss this report?</DialogTitle>
+            <DialogDescription>
+              This only removes the report record. The business itself will not be affected.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReportDeleteTarget(null)}>Cancel</Button>
+            <Button variant="destructive" disabled={reportDeleting} onClick={handleDismissReport}>
+              {reportDeleting ? "Dismissing…" : "Dismiss"}
             </Button>
           </DialogFooter>
         </DialogContent>
