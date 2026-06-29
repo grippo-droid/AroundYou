@@ -22,19 +22,20 @@ const Feed = () => {
 
   // ── saved posts (localStorage) ────────────────────────────────────────────
   const SAVED_KEY = "nearme_saved_posts";
-  const readSaved = (): Record<string, boolean> => {
+  const readSaved = (): Record<string, Post> => {
     try { return JSON.parse(localStorage.getItem(SAVED_KEY) || "{}"); } catch { return {}; }
   };
-  const [saved, setSaved] = useState<Record<string, boolean>>(readSaved);
+  const [saved, setSaved] = useState<Record<string, Post>>(readSaved);
 
-  const toggleSave = (postId: string) => {
+  const toggleSave = (post: Post) => {
+    const isSaved = !!saved[post.id];
     setSaved((prev) => {
       const next = { ...prev };
-      if (next[postId]) { delete next[postId]; } else { next[postId] = true; }
+      if (next[post.id]) { delete next[post.id]; } else { next[post.id] = post; }
       localStorage.setItem(SAVED_KEY, JSON.stringify(next));
       return next;
     });
-    toast(saved[postId] ? "Removed from saved" : "Post saved!");
+    toast(isSaved ? "Removed from saved" : "Post saved!");
   };
 
   const loadPosts = useCallback(async () => {
@@ -285,7 +286,7 @@ const Feed = () => {
                         variant="ghost"
                         size="icon"
                         className={`ml-auto h-8 w-8 transition-colors ${saved[post.id] ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
-                        onClick={() => toggleSave(post.id)}
+                        onClick={() => toggleSave(post)}
                       >
                         <Bookmark className={`h-5 w-5 transition-all ${saved[post.id] ? "fill-current" : ""}`} />
                       </Button>
