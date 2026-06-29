@@ -16,6 +16,7 @@ import AddBusiness from "./pages/AddBusiness";
 import EditBusiness from "./pages/EditBusiness";
 import BusinessStaff from "./pages/BusinessStaff";
 import JobListing from "./pages/JobListing";
+import JobDetail from "./pages/JobDetail";
 import Messages from "./pages/Messages";
 import Profile from "./pages/Profile";
 import Feed from "./pages/Feed";
@@ -56,6 +57,7 @@ const App = () => (
                   <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
                   <Route path="/admin-login" element={<AdminLogin />} />
                   <Route path="/jobs" element={<JobListing />} />
+                  <Route path="/jobs/:id" element={<JobDetail />} />
                   <Route path="/bookings" element={<PrivateRoute><Bookings /></PrivateRoute>} />
                   <Route path="/business/:id/availability" element={<PrivateRoute><ManageAvailability /></PrivateRoute>} />
                   <Route path="/profile/:id" element={<Profile />} />

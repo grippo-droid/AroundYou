@@ -265,9 +265,9 @@ export async function getJobs(): Promise<ApiJob[]> {
   return response.data.data;
 }
 
-export async function getJobById(id: string): Promise<ApiJob | undefined> {
-  const jobs = await getJobs();
-  return jobs.find((j) => j._id === id);
+export async function getJobById(id: string): Promise<ApiJob> {
+  const response = await apiClient.get<ApiResponse<ApiJob>>(`/jobs/${id}`);
+  return response.data.data;
 }
 
 // ─── Posts ───────────────────────────────────────────────────────────────────
