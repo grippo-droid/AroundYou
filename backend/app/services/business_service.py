@@ -13,7 +13,9 @@ class BusinessService:
         db = get_database()
         new_business = BusinessModel(
             owner_id=owner_id,
-            **business_data.model_dump()
+            **business_data.model_dump(),
+            verification_status="pending",
+            is_verified=False,
         )
         result = await db.businesses.insert_one(new_business.model_dump(by_alias=True, exclude={"id"}))
         new_business.id = result.inserted_id
@@ -32,7 +34,7 @@ class BusinessService:
                 {"category": {"$regex": search, "$options": "i"}}
             ]
 
-        cursor = db.businesses.find(query).sort([("created_at", -1), ("_id", -1)]).skip(skip).limit(limit)
+        cursor = db.businesses.find(query).sort([("is_verified", -1), ("created_at", -1), ("_id", -1)]).skip(skip).limit(limit)
         raw, total = await asyncio.gather(
             cursor.to_list(length=limit),
             db.businesses.count_documents(query),
@@ -196,6 +198,28 @@ class BusinessService:
             "bookings_this_week": bookings_this_week,
             "bookings_by_day": [{"date": d, "count": c} for d, c in day_counts.items()],
         }
+
+    @staticmethod
+    async def approve_business(business_id: str) -> Optional[BusinessModel]:
+        db = get_database()
+        if not ObjectId.is_valid(business_id):
+            return None
+        await db.businesses.update_one(
+            {"_id": ObjectId(business_id)},
+            {"$set": {"verification_status": "approved", "is_verified": True}},
+        )
+        return await BusinessService.get_business_by_id(business_id)
+
+    @staticmethod
+    async def reject_business(business_id: str) -> Optional[BusinessModel]:
+        db = get_database()
+        if not ObjectId.is_valid(business_id):
+            return None
+        await db.businesses.update_one(
+            {"_id": ObjectId(business_id)},
+            {"$set": {"verification_status": "rejected", "is_active": False}},
+        )
+        return await BusinessService.get_business_by_id(business_id)
 
     @staticmethod
     async def get_business_staff(business_id: str) -> List[dict]:

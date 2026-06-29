@@ -16,15 +16,15 @@ async def create_business(
     business = await BusinessService.create_business(str(current_user.id), business_data)
     return ResponseModel.success(data=business, message="Business created successfully", status_code=201)
 
-@router.get("/", response_model=List[BusinessResponse])
+@router.get("/")
 async def get_businesses(
     category: Optional[str] = None,
     search: Optional[str] = None,
     skip: int = 0,
     limit: int = 12,
 ):
-    businesses = await BusinessService.get_businesses(category, search, skip, limit)
-    return ResponseModel.success(data=businesses)
+    result = await BusinessService.get_businesses(category, search, skip, limit)
+    return ResponseModel.success(data=result)
 
 @router.get("/my-businesses", response_model=List[BusinessResponse])
 async def get_my_businesses(

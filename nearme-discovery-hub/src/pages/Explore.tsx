@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { getBusinesses, searchUsers } from "@/services/api";
 import type { SearchUser } from "@/services/api";
@@ -28,7 +28,6 @@ const Explore = () => {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [activeCategory, setActiveCategory] = useState<BusinessCategory | undefined>(
     (searchParams.get("category") as BusinessCategory) || undefined
@@ -38,6 +37,13 @@ const Explore = () => {
   const [viewMode, setViewMode] = useState<"grid" | "map">(
     () => (localStorage.getItem("exploreViewMode") as "grid" | "map") || "grid"
   );
+
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  // Synchronous guard — prevents duplicate calls before React state flush
+  const fetchingRef = useRef(false);
+  // Always-current count — lets loadMore read businesses.length without being in its dep array
+  const businessCountRef = useRef(0);
+  businessCountRef.current = businesses.length;
 
   const setViewModePersisted = (mode: "grid" | "map") => {
     setViewMode(mode);
@@ -52,33 +58,61 @@ const Explore = () => {
   const [userResults, setUserResults] = useState<SearchUser[]>([]);
   const [userSearchLoading, setUserSearchLoading] = useState(false);
 
-  // Filter change: always reset to page 0 and replace results
+  // Filter change: reset list and fetch first page
   useEffect(() => {
+    fetchingRef.current = false;
     setLoading(true);
     setError(null);
-    setPage(0);
+    setBusinesses([]);
     setHasMore(true);
     getBusinesses({ category: activeCategory, sort: activeSort, search: searchQuery, skip: 0, limit: PAGE_SIZE })
       .then((data) => {
-        setBusinesses(data);
-        setHasMore(data.length === PAGE_SIZE);
+        setBusinesses(data.businesses);
+        setHasMore(data.hasMore);
       })
       .catch(() => setError("Could not load businesses. Check your connection and try again."))
       .finally(() => setLoading(false));
   }, [activeCategory, activeSort, searchQuery]);
 
-  const handleLoadMore = () => {
-    const nextPage = page + 1;
+  // Append next page — used by the IntersectionObserver
+  const loadMore = useCallback(() => {
+    if (fetchingRef.current || !hasMore || loading) return;
+    fetchingRef.current = true;
     setLoadingMore(true);
-    getBusinesses({ category: activeCategory, sort: activeSort, search: searchQuery, skip: nextPage * PAGE_SIZE, limit: PAGE_SIZE })
+    getBusinesses({
+      category: activeCategory,
+      sort: activeSort,
+      search: searchQuery,
+      skip: businessCountRef.current,
+      limit: PAGE_SIZE,
+    })
       .then((data) => {
-        setBusinesses((prev) => [...prev, ...data]);
-        setHasMore(data.length === PAGE_SIZE);
-        setPage(nextPage);
+        setBusinesses((prev) => {
+          const seen = new Set(prev.map((b) => b._id));
+          return [...prev, ...data.businesses.filter((b) => !seen.has(b._id))];
+        });
+        setHasMore(data.hasMore);
       })
       .catch(() => setError("Could not load more businesses. Try again."))
-      .finally(() => setLoadingMore(false));
-  };
+      .finally(() => {
+        fetchingRef.current = false;
+        setLoadingMore(false);
+      });
+  }, [hasMore, loading, activeCategory, activeSort, searchQuery]);
+
+  // Wire IntersectionObserver to sentinel div
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) loadMore();
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadMore]);
 
   const businessesWithDistance = useMemo(() => {
     if (geoState.lat === null || geoState.lng === null) return businesses;
@@ -237,7 +271,7 @@ const Explore = () => {
               </span>
             )}
           </div>
-          
+
           <div className="flex gap-1 bg-muted p-1 rounded-lg self-start sm:self-auto">
             <Button
               size="sm"
@@ -304,12 +338,12 @@ const Explore = () => {
               onClick={() => {
                 setError(null);
                 setLoading(true);
-                setPage(0);
+                setBusinesses([]);
                 setHasMore(true);
                 getBusinesses({ category: activeCategory, sort: activeSort, search: searchQuery, skip: 0, limit: PAGE_SIZE })
                   .then((data) => {
-                    setBusinesses(data);
-                    setHasMore(data.length === PAGE_SIZE);
+                    setBusinesses(data.businesses);
+                    setHasMore(data.hasMore);
                   })
                   .catch(() => setError("Could not load businesses. Check your connection and try again."))
                   .finally(() => setLoading(false));
@@ -340,21 +374,17 @@ const Explore = () => {
                 <BusinessCard key={b._id} business={b} />
               ))}
             </div>
+
+            {/* Infinite scroll sentinel */}
             {hasMore && (
-              <div className="flex justify-center mt-8">
-                <Button
-                  variant="outline"
-                  onClick={handleLoadMore}
-                  disabled={loadingMore}
-                  className="min-w-[140px]"
-                >
-                  {loadingMore ? (
-                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Loading...</>
-                  ) : (
-                    "Load More"
-                  )}
-                </Button>
+              <div ref={sentinelRef} className="flex justify-center py-8">
+                {loadingMore && <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />}
               </div>
+            )}
+            {!hasMore && (
+              <p className="text-center text-sm text-muted-foreground py-8">
+                You've seen all businesses
+              </p>
             )}
           </>
         )}

@@ -69,3 +69,31 @@ class ReviewService:
                 )
 
         return ReviewModel(**review_doc)
+
+    @staticmethod
+    async def reply_to_review(review_id: str, owner_id: str, reply: str) -> Optional[ReviewModel]:
+        db = get_database()
+        if not ObjectId.is_valid(review_id):
+            return None
+
+        review_doc = await db.reviews.find_one({"_id": ObjectId(review_id)})
+        if not review_doc:
+            return None
+
+        # Verify the review's business belongs to this owner
+        if not ObjectId.is_valid(review_doc["business_id"]):
+            return None
+        business = await db.businesses.find_one(
+            {"_id": ObjectId(review_doc["business_id"]), "owner_id": owner_id}
+        )
+        if not business:
+            return None
+
+        reply_at = datetime.utcnow()
+        await db.reviews.update_one(
+            {"_id": ObjectId(review_id)},
+            {"$set": {"owner_reply": reply, "owner_reply_at": reply_at}},
+        )
+        review_doc["owner_reply"] = reply
+        review_doc["owner_reply_at"] = reply_at
+        return ReviewModel(**review_doc)

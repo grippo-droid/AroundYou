@@ -13,7 +13,7 @@ const Index = () => {
   return (
     <main>
       {/* Hero */}
-      <section className="relative overflow-hidden bg-background py-24 md:py-36">
+      <section className="relative overflow-hidden bg-background pt-10 pb-16 md:pt-14 md:pb-24">
         {/* Mesh gradient layer */}
         <div className="absolute inset-0 bg-gradient-to-br from-secondary/70 via-background to-accent/15 pointer-events-none" />
 
@@ -27,7 +27,7 @@ const Index = () => {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.65, ease: "easeOut" }}
-            className="max-w-2xl mx-auto text-center"
+            className="max-w-4xl mx-auto text-center"
           >
             {/* Pill badge */}
             <div className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-gradient-to-r from-primary/10 to-accent/10 px-4 py-1.5 text-sm font-medium text-primary mb-7 shadow-sm">
@@ -45,19 +45,21 @@ const Index = () => {
                 letterSpacing: "-0.03em",
               }}
             >
-              Discover what's{" "}
-              <span
-                style={{
-                  background: "linear-gradient(120deg, #1A73E8, #0B1F3A 60%, #EA4335)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                  color: "transparent",
-                }}
-              >
-                new &amp; nearby
-              </span>{" "}
-              around you
+              <span style={{ display: "block" }}>Discover what's</span>
+              <span style={{ display: "block", whiteSpace: "nowrap" }}>
+                <span
+                  style={{
+                    background: "linear-gradient(120deg, #1A73E8, #0B1F3A 60%, #EA4335)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text",
+                    color: "transparent",
+                  }}
+                >
+                  new &amp; nearby
+                </span>{" "}
+                around you
+              </span>
             </h1>
 
             <p

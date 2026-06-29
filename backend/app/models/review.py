@@ -12,6 +12,8 @@ class ReviewModel(BaseModel):
     rating: int          # 1–5
     text: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    owner_reply: Optional[str] = None
+    owner_reply_at: Optional[datetime] = None
 
     class Config:
         populate_by_name = True
