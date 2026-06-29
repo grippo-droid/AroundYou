@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Logo } from "@/components/Logo";
-import { Search, MapPin, Menu, X, Briefcase, MessageSquare, LogOut, Bell, Rss, ShieldCheck } from "lucide-react";
+import { Search, Menu, X, Briefcase, MessageSquare, LogOut, Bell, Rss, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
@@ -124,12 +124,6 @@ const Navbar = () => {
           </div>
         </form>
 
-        {/* Location */}
-        <button className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0">
-          <MapPin className="h-4 w-4 text-primary" />
-          <span>Bangalore</span>
-        </button>
-
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-1">
           <Button variant="ghost" size="sm" asChild>
@@ -242,10 +236,6 @@ const Navbar = () => {
               />
             </div>
           </form>
-          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <MapPin className="h-4 w-4 text-primary" />
-            <span>Bangalore</span>
-          </div>
           <nav className="flex flex-col gap-1">
             <Button variant="ghost" className="justify-start" asChild onClick={() => setMenuOpen(false)}>
               <Link to="/explore">Explore</Link>
