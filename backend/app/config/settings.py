@@ -1,9 +1,8 @@
-from typing import List
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     MONGO_URI: str
-    DB_NAME: str
+    DB_NAME: str = "around_you_db"
     JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 60 * 24 * 7  # 1 week
@@ -11,7 +10,8 @@ class Settings(BaseSettings):
     COOKIE_SECURE: bool = False
     DOMAIN: str = "localhost"
     ENVIRONMENT: str = "development"
-    CORS_ORIGINS: List[str] = ["http://localhost:8080", "http://localhost:5173"]
+    # Comma-separated list of allowed origins, e.g. "https://app.vercel.app,https://www.example.com"
+    ALLOWED_ORIGINS: str = "http://localhost:5173"
 
     # ── Admin ─────────────────────────────────────────────────────────────────
     # Set a strong secret in .env; anyone with this key can create an admin account

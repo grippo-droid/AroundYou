@@ -20,10 +20,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS Middleware
+# CORS Middleware — always include local dev origins; extend via ALLOWED_ORIGINS env var
+_local_origins = ["http://localhost:5173", "http://localhost:8080"]
+_extra_origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]
+_all_origins = list(dict.fromkeys(_local_origins + _extra_origins))  # deduplicated, order preserved
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=_all_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -61,3 +65,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @app.get("/")
 async def root():
     return {"message": "Welcome to NearMe Discovery Hub API"}
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "message": "AroundYou API is running"}
