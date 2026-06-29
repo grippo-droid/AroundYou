@@ -32,9 +32,6 @@ interface AuthContextType {
     register: (data: RegisterData) => Promise<void>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
-    sendOtp: (phone: string, purpose: "login" | "register") => Promise<void>;
-    loginWithOtp: (phone: string, code: string) => Promise<void>;
-    registerWithOtp: (data: { name: string; phone: string; role: string }, code: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,7 +42,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
 
     const loadFollowing = async (userData: User) => {
-        // Prefer the list already embedded in the user doc to save a round-trip
         const ids = userData.followed_businesses ?? [];
         if (ids.length > 0) {
             setFollowingIds(new Set(ids));
@@ -126,59 +122,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    const sendOtp = async (phone: string, purpose: "login" | "register") => {
-        try {
-            await apiClient.post("/auth/send-otp", { phone, purpose });
-            toast.success(`OTP sent to ${phone}`);
-        } catch (err) {
-            const error = err as AxiosError<ApiErrorData>;
-            toast.error(error.response?.data?.detail || error.response?.data?.message || "Failed to send OTP");
-            throw err;
-        }
-    };
-
-    const loginWithOtp = async (phone: string, code: string) => {
-        try {
-            const { data } = await apiClient.post("/auth/login-otp", { phone, code });
-            if (data.success) {
-                localStorage.setItem("access_token", data.data.access_token);
-                toast.success("Welcome back!");
-                const me = await apiClient.get("/auth/me");
-                setUser(me.data.data);
-                await loadFollowing(me.data.data);
-            }
-        } catch (err) {
-            const error = err as AxiosError<ApiErrorData>;
-            toast.error(error.response?.data?.detail || "OTP verification failed");
-            throw err;
-        }
-    };
-
-    const registerWithOtp = async (
-        userData: { name: string; phone: string; role: string },
-        code: string
-    ) => {
-        try {
-            const { data } = await apiClient.post("/auth/register-otp", { ...userData, code });
-            if (data.success) {
-                localStorage.setItem("access_token", data.data.access_token);
-                toast.success("Account created! Welcome to NearMe!");
-                const me = await apiClient.get("/auth/me");
-                setUser(me.data.data);
-                await loadFollowing(me.data.data);
-            }
-        } catch (err) {
-            const error = err as AxiosError<ApiErrorData>;
-            toast.error(error.response?.data?.detail || error.response?.data?.message || "Registration failed");
-            throw err;
-        }
-    };
-
     return (
         <AuthContext.Provider value={{
             user, loading, followingIds, setFollowingIds,
             login, register, logout, refreshUser,
-            sendOtp, loginWithOtp, registerWithOtp,
         }}>
             {children}
         </AuthContext.Provider>
