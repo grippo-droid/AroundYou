@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { Search, MapPin, ArrowRight, Sparkles } from "lucide-react";
+import { Search, ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { categories } from "@/services/mockData";
@@ -96,10 +96,7 @@ const Index = () => {
               </Button>
             </form>
 
-            <div className="flex items-center justify-center gap-1.5 mt-5 text-sm text-muted-foreground">
-              <MapPin className="h-3.5 w-3.5 text-primary" />
-              <span>Showing results for <strong className="text-foreground">Bangalore</strong></span>
-            </div>
+
           </motion.div>
 
           {/* Floating stat pills */}
