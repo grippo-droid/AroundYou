@@ -216,6 +216,11 @@ export async function getMyBusinesses(): Promise<Business[]> {
   return (response.data.data || []).map(mapApiBusinessToBusiness);
 }
 
+export async function getUserBusinesses(userId: string): Promise<Business[]> {
+  const response = await apiClient.get<ApiResponse<ApiBusRaw[]>>(`/users/${userId}/businesses`);
+  return (response.data.data || []).map(mapApiBusinessToBusiness);
+}
+
 export async function createBusiness(data: BusinessCreateData): Promise<Business> {
   const response = await apiClient.post<ApiResponse<ApiBusRaw>>("/businesses/", data);
   return mapApiBusinessToBusiness(response.data.data);

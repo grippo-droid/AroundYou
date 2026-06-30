@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { apiClient } from "@/lib/api_client";
+import { getUserBusinesses } from "@/services/api";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -71,8 +72,8 @@ const Profile = () => {
 
                 // Fetch businesses if business owner
                 if (profileData.data.role === 'business') {
-                    const { data: businessData } = await apiClient.get(`/users/${profileId}/businesses`);
-                    setBusinesses(businessData.data);
+                    const mapped = await getUserBusinesses(profileId);
+                    setBusinesses(mapped);
                 }
             } catch (error) {
                 console.error("Error fetching profile:", error);
