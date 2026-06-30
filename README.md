@@ -1,5 +1,7 @@
 # NearMe Discovery Hub
 
+> **Note:** The backend is hosted on Render's free tier, which spins down after periods of inactivity. The first request may take 30–60 seconds while the server wakes up. Subsequent requests will be fast.
+
 A hyper-local business discovery platform for urban India — find cafes, salons, clinics, restaurants, and more near you, book appointments, follow businesses, and apply for local jobs.
 
 ---
