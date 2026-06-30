@@ -5,9 +5,10 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// Maps 3-letter day abbreviations to JS getDay() values (0 = Sun)
+// Maps day names (full and abbreviated) to JS getDay() values (0 = Sun)
 const DAY_INDEX: Record<string, number> = {
   Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+  Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6,
 };
 
 // Returns minutes since midnight for strings like "7:00 AM" or "11:30 PM"
@@ -76,7 +77,7 @@ export function isBusinessOpen(timings: { day: string; hours: string }[]): boole
     const hoursStr = timing.hours.trim();
     if (hoursStr.toLowerCase() === "closed") return false;
 
-    const parts = hoursStr.split(" - ");
+    const parts = hoursStr.split(/\s[–\-]\s/);
     if (parts.length !== 2) continue;
 
     const open = parseMinutes(parts[0]);
