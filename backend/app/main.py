@@ -10,6 +10,7 @@ from app.routes import auth, users, businesses, posts, jobs, messages, reviews, 
 async def lifespan(app: FastAPI):
     # Startup
     db.connect()
+    await db.ensure_indexes()
     yield
     # Shutdown
     db.close()

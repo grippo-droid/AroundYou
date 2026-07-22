@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from typing import List, Optional
 from bson import ObjectId
+from pymongo.errors import DuplicateKeyError
 from app.config.database import get_database
 from app.models.booking import AvailabilityModel, BookingModel
 from app.schemas.booking import AvailabilitySet, BookingCreate
@@ -96,7 +97,10 @@ class BookingService:
             "notes": data.notes,
             "created_at": datetime.utcnow(),
         }
-        result = await db.bookings.insert_one(doc)
+        try:
+            result = await db.bookings.insert_one(doc)
+        except DuplicateKeyError:
+            return None
         doc["_id"] = result.inserted_id
         return BookingModel(**doc)
 

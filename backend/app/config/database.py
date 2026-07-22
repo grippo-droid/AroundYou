@@ -8,6 +8,15 @@ class Database:
         self.client = AsyncIOMotorClient(settings.MONGO_URI)
         print("Connected to MongoDB")
 
+    async def ensure_indexes(self):
+        database = self.get_db()
+        await database.bookings.create_index(
+            [("business_id", 1), ("date", 1), ("time_slot", 1)],
+            unique=True,
+            partialFilterExpression={"status": {"$in": ["pending", "confirmed"]}},
+            name="uniq_active_booking_slot",
+        )
+
     def close(self):
         if self.client:
             self.client.close()
