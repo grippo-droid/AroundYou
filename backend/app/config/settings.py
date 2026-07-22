@@ -43,4 +43,8 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
+    @property
+    def COOKIE_SAMESITE(self) -> str:
+        return "none" if self.COOKIE_SECURE else "lax"
+
 settings = Settings()

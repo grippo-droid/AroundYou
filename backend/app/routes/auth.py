@@ -16,15 +16,21 @@ async def register(user_data: UserCreate):
     return ResponseModel.success(data=new_user, message="User registered successfully")
 
 @router.post("/login")
-async def login(response: Response, login_data: UserLogin):
+async def login(login_data: UserLogin):
     token = await AuthService.authenticate_user(login_data)
-    _set_auth_cookie(response, token)
-    return ResponseModel.success(data={"access_token": token, "token_type": "bearer"}, message="Login successful")
+    resp = ResponseModel.success(data={"access_token": token, "token_type": "bearer"}, message="Login successful")
+    _set_auth_cookie(resp, token)
+    return resp
 
 @router.post("/logout")
-async def logout(response: Response):
-    response.delete_cookie(settings.COOKIE_NAME)
-    return ResponseModel.success(message="Logged out successfully")
+async def logout():
+    resp = ResponseModel.success(message="Logged out successfully")
+    resp.delete_cookie(
+        key=settings.COOKIE_NAME,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+    )
+    return resp
 
 def _set_auth_cookie(response: Response, token: str) -> None:
     response.set_cookie(
@@ -33,8 +39,8 @@ def _set_auth_cookie(response: Response, token: str) -> None:
         httponly=True,
         max_age=settings.JWT_EXPIRE_MINUTES * 60,
         expires=settings.JWT_EXPIRE_MINUTES * 60,
-        secure=True,
-        samesite="none",
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
     )
 
 
@@ -46,7 +52,7 @@ class AdminRegisterRequest(BaseModel):
 
 
 @router.post("/admin/register", status_code=status.HTTP_201_CREATED)
-async def admin_register(response: Response, body: AdminRegisterRequest):
+async def admin_register(body: AdminRegisterRequest):
     if body.admin_secret != settings.ADMIN_SECRET_KEY:
         raise HTTPException(status_code=403, detail="Invalid admin secret key")
 
@@ -68,12 +74,13 @@ async def admin_register(response: Response, body: AdminRegisterRequest):
     )
     result = await db.users.insert_one(new_user.model_dump(by_alias=True, exclude={"id"}))
     token = create_access_token_for(str(result.inserted_id), "admin")
-    _set_auth_cookie(response, token)
-    return ResponseModel.success(
+    resp = ResponseModel.success(
         data={"access_token": token, "token_type": "bearer"},
         message="Admin account created successfully",
         status_code=201,
     )
+    _set_auth_cookie(resp, token)
+    return resp
 
 
 def create_access_token_for(user_id: str, role: str) -> str:

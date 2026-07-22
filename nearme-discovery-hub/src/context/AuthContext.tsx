@@ -63,7 +63,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 await loadFollowing(data.data);
             }
         } catch {
-            localStorage.removeItem("access_token");
             setUser(null);
             setFollowingIds(new Set());
         } finally {
@@ -83,8 +82,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             const { data } = await apiClient.post("/auth/login", credentials);
             if (data.success) {
-                const { access_token } = data.data;
-                localStorage.setItem("access_token", access_token);
                 toast.success("Welcome back!");
                 const me = await apiClient.get("/auth/me");
                 setUser(me.data.data);
@@ -113,7 +110,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const logout = async () => {
         try {
             await apiClient.post("/auth/logout");
-            localStorage.removeItem("access_token");
             setUser(null);
             setFollowingIds(new Set());
             toast.success("Logged out");

@@ -8,13 +8,6 @@ from app.config.settings import settings
 
 async def get_current_user(request: Request) -> Optional[UserModel]:
     token = request.cookies.get(settings.COOKIE_NAME)
-    token = request.cookies.get(settings.COOKIE_NAME)
-    
-    # Check for Authorization header if cookie is missing
-    if not token:
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header.split(" ")[1]
 
     if not token:
         raise HTTPException(
