@@ -25,27 +25,32 @@ async def toggle_follow(
     already_following = business_id in (current_user.followed_businesses or [])
 
     if already_following:
-        await db.users.update_one(
+        pull_result = await db.users.update_one(
             {"_id": ObjectId(user_id)},
             {"$pull": {"followed_businesses": business_id}},
         )
-        await db.businesses.update_one(
-            {"_id": ObjectId(business_id)},
-            {"$inc": {"followers": -1}},
-        )
-        new_count = max(0, business.get("followers", 0) - 1)
+        if pull_result.modified_count > 0:
+            await db.businesses.update_one(
+                {"_id": ObjectId(business_id)},
+                {"$inc": {"followers": -1}},
+            )
         is_following = False
     else:
-        await db.users.update_one(
+        add_result = await db.users.update_one(
             {"_id": ObjectId(user_id)},
             {"$addToSet": {"followed_businesses": business_id}},
         )
-        await db.businesses.update_one(
-            {"_id": ObjectId(business_id)},
-            {"$inc": {"followers": 1}},
-        )
-        new_count = business.get("followers", 0) + 1
+        if add_result.modified_count > 0:
+            await db.businesses.update_one(
+                {"_id": ObjectId(business_id)},
+                {"$inc": {"followers": 1}},
+            )
         is_following = True
+
+    updated_business = await db.businesses.find_one(
+        {"_id": ObjectId(business_id)}, {"followers": 1}
+    )
+    new_count = max(0, updated_business.get("followers", 0)) if updated_business else 0
 
     return ResponseModel.success(data={"following": is_following, "follower_count": new_count})
 
