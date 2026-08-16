@@ -16,6 +16,11 @@ class Database:
             partialFilterExpression={"status": {"$in": ["pending", "confirmed"]}},
             name="uniq_active_booking_slot",
         )
+        await database.users.create_index(
+            "phone",
+            unique=True,
+            name="uniq_user_phone",
+        )
 
     def close(self):
         if self.client:
