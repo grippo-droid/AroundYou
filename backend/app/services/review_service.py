@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 from bson import ObjectId
+from pymongo.errors import DuplicateKeyError
 from app.config.database import get_database
 from app.models.review import ReviewModel
 from app.schemas.review import ReviewCreate
@@ -37,7 +38,10 @@ class ReviewService:
             "text": data.text,
             "created_at": datetime.utcnow(),
         }
-        result = await db.reviews.insert_one(review_doc)
+        try:
+            result = await db.reviews.insert_one(review_doc)
+        except DuplicateKeyError:
+            return None  # duplicate review
         review_doc["_id"] = result.inserted_id
 
         # Recompute business avg rating + review count
