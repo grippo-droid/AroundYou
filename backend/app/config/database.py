@@ -21,6 +21,11 @@ class Database:
             unique=True,
             name="uniq_user_phone",
         )
+        await database.reviews.create_index(
+            [("business_id", 1), ("user_id", 1)],
+            unique=True,
+            name="uniq_business_user_review",
+        )
 
     def close(self):
         if self.client:
