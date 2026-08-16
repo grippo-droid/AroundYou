@@ -1,5 +1,7 @@
 from datetime import timedelta
+from typing import Optional
 from fastapi import HTTPException
+from pymongo.errors import DuplicateKeyError
 from app.config.database import get_database
 from app.core.security import verify_password, get_password_hash
 from app.core.jwt import create_access_token
@@ -33,7 +35,7 @@ class AuthService:
         )
 
     @staticmethod
-    async def create_user(user_data: UserCreate) -> UserModel:
+    async def create_user(user_data: UserCreate) -> Optional[UserModel]:
         db = get_database()
         if await db.users.find_one({"phone": user_data.phone}):
             raise HTTPException(status_code=400, detail="Phone number already registered")
@@ -50,6 +52,9 @@ class AuthService:
             role=user_data.role
         )
 
-        result = await db.users.insert_one(new_user.model_dump(by_alias=True, exclude={"id"}))
+        try:
+            result = await db.users.insert_one(new_user.model_dump(by_alias=True, exclude={"id"}))
+        except DuplicateKeyError:
+            return None
         new_user.id = result.inserted_id
         return new_user

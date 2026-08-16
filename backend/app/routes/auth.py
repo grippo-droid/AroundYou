@@ -13,6 +13,8 @@ router = APIRouter()
 @router.post("/register", response_model=UserResponse)
 async def register(user_data: UserCreate):
     new_user = await AuthService.create_user(user_data)
+    if new_user is None:
+        raise HTTPException(status_code=409, detail="Phone number already registered")
     return ResponseModel.success(data=new_user, message="User registered successfully")
 
 @router.post("/login")
