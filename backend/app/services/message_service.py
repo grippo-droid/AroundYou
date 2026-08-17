@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 from bson import ObjectId
+from fastapi import HTTPException
 from app.config.database import get_database
 from app.models.conversation import ConversationModel, ConversationParticipant
 from app.models.message import MessageModel
@@ -9,8 +10,11 @@ from app.schemas.message import MessageCreate
 class MessageService:
     @staticmethod
     async def create_or_get_conversation(sender_id: str, sender_type: str, receiver_id: str, receiver_type: str) -> ConversationModel:
+        if not ObjectId.is_valid(sender_id) or not ObjectId.is_valid(receiver_id):
+            raise HTTPException(status_code=400, detail="Invalid user ID")
+
         db = get_database()
-        
+
         # Check if conversation exists.
         # participant IDs are stored as strings (model_dump serialises PyObjectId via str()),
         # so the query must use str() — not ObjectId() — to match.

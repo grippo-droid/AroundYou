@@ -1,5 +1,6 @@
 from typing import Optional
 from bson import ObjectId
+from fastapi import HTTPException
 from app.config.database import get_database
 from app.models.user import UserModel
 from app.schemas.user import UserUpdate
@@ -28,6 +29,8 @@ class UserService:
 
     @staticmethod
     async def get_user_profile(user_id: str) -> Optional[dict]:
+        if not ObjectId.is_valid(user_id):
+            raise HTTPException(status_code=400, detail="Invalid user ID")
         db = get_database()
         user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
         if not user_doc:
@@ -49,7 +52,9 @@ class UserService:
     async def follow_user(follower_id: str, target_id: str) -> bool:
         if follower_id == target_id:
             return False
-            
+        if not ObjectId.is_valid(target_id):
+            raise HTTPException(status_code=400, detail="Invalid user ID")
+
         db = get_database()
         
         # Check if target exists
@@ -73,6 +78,9 @@ class UserService:
 
     @staticmethod
     async def unfollow_user(follower_id: str, target_id: str) -> bool:
+        if not ObjectId.is_valid(target_id):
+            raise HTTPException(status_code=400, detail="Invalid user ID")
+
         db = get_database()
         
         # Remove from following list of follower
