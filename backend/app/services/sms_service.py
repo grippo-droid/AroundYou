@@ -8,8 +8,11 @@ Set SMS_PROVIDER in .env:
 """
 
 import base64
+import logging
 import httpx
 from app.config.settings import settings
+
+logger = logging.getLogger(__name__)
 
 
 async def send_otp_sms(phone: str, otp: str) -> bool:
@@ -23,9 +26,7 @@ async def send_otp_sms(phone: str, otp: str) -> bool:
 
     # ── console / development fallback ────────────────────────────────────────
     border = "─" * 44
-    print(f"\n{border}")
-    print(f"  NearMe OTP  │  phone: {phone}  │  code: {otp}")
-    print(f"{border}\n")
+    logger.info("\n%s\n  NearMe OTP  │  phone: %s  │  code: %s\n%s", border, phone, otp, border)
     return True
 
 
@@ -43,8 +44,8 @@ async def _msg91(phone: str, otp: str) -> bool:
                 },
             )
         return resp.status_code == 200
-    except Exception as exc:
-        print(f"[SMS] MSG91 error: {exc}")
+    except Exception:
+        logger.error("MSG91 send failed for phone %s", phone, exc_info=True)
         return False
 
 
@@ -68,6 +69,6 @@ async def _twilio(phone: str, message: str) -> bool:
                 },
             )
         return resp.status_code == 201
-    except Exception as exc:
-        print(f"[SMS] Twilio error: {exc}")
+    except Exception:
+        logger.error("Twilio send failed for phone %s", phone, exc_info=True)
         return False

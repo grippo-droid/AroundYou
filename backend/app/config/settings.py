@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     COOKIE_SECURE: bool = False
     DOMAIN: str = "localhost"
     ENVIRONMENT: str = "development"
+    # Python logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+    LOG_LEVEL: str = "INFO"
     # Comma-separated list of allowed origins, e.g. "https://app.vercel.app,https://www.example.com"
     ALLOWED_ORIGINS: str = "http://localhost:5173"
 

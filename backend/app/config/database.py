@@ -1,12 +1,15 @@
+import logging
 from motor.motor_asyncio import AsyncIOMotorClient
 from app.config.settings import settings
+
+logger = logging.getLogger(__name__)
 
 class Database:
     client: AsyncIOMotorClient = None
 
     def connect(self):
         self.client = AsyncIOMotorClient(settings.MONGO_URI)
-        print("Connected to MongoDB")
+        logger.info("Connected to MongoDB")
 
     async def ensure_indexes(self):
         database = self.get_db()
@@ -30,7 +33,7 @@ class Database:
     def close(self):
         if self.client:
             self.client.close()
-            print("Disconnected from MongoDB")
+            logger.info("Disconnected from MongoDB")
 
     def get_db(self):
         return self.client[settings.DB_NAME]

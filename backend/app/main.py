@@ -1,6 +1,12 @@
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+
+from app.core.logging_config import configure_logging
+
+configure_logging()
+logger = logging.getLogger(__name__)
 
 from app.config.settings import settings
 from app.config.database import db
@@ -57,10 +63,27 @@ from fastapi.requests import Request
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    print(f"Validation Error: {exc.errors()}")
+    logger.warning(
+        "Validation error on %s %s: %s", request.method, request.url.path, exc.errors()
+    )
     return JSONResponse(
         status_code=422,
         content={"detail": exc.errors(), "body": exc.body},
+    )
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.error(
+        "Unhandled %s on %s %s: %s",
+        type(exc).__name__,
+        request.method,
+        request.url.path,
+        exc,
+        exc_info=exc,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
     )
 
 @app.get("/")
