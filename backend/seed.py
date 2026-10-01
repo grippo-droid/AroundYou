@@ -57,11 +57,17 @@ USER1_ID        = ObjectId("000000000000000000000001")  # Arjun Sharma
 USER2_ID        = ObjectId("000000000000000000000003")  # Sneha Kulkarni
 USER3_ID        = ObjectId("000000000000000000000007")  # Priya Sharma
 USER4_ID        = ObjectId("000000000000000000000008")  # Rahul Verma
+USER5_ID        = ObjectId("000000000000000000000005")  # Ananya Iyer
+USER6_ID        = ObjectId("000000000000000000000006")  # Vikram Singh
 BHOPAL_OWNER_ID = ObjectId("000000000000000000000010")  # Rajesh Patel
 PUNE_OWNER_ID   = ObjectId("000000000000000000000011")  # Pooja Joshi
 
-REVIEWER_IDS   = [USER1_ID, USER2_ID, USER3_ID, USER4_ID]
-REVIEWER_NAMES = ["Arjun Sharma", "Sneha Kulkarni", "Priya Sharma", "Rahul Verma"]
+# Must be at least as long as the longest review list in _REVIEW_DATA --
+# reviews has a unique (business_id, user_id) index, so each reviewer can
+# review a given business only once (see build_reviews).
+REVIEWER_IDS   = [USER1_ID, USER2_ID, USER3_ID, USER4_ID, USER5_ID, USER6_ID]
+REVIEWER_NAMES = ["Arjun Sharma", "Sneha Kulkarni", "Priya Sharma", "Rahul Verma",
+                  "Ananya Iyer", "Vikram Singh"]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -87,6 +93,12 @@ def build_users() -> list:
         {**base, "_id": USER4_ID,
          "name": "Rahul Verma",    "email": "rahul.verma@gmail.com",
          "phone": "+919444555666", "password_hash": pwd_context.hash("password123"), "role": "user"},
+        {**base, "_id": USER5_ID,
+         "name": "Ananya Iyer",    "email": "ananya.iyer@gmail.com",
+         "phone": "+919222333444", "password_hash": pwd_context.hash("password123"), "role": "user"},
+        {**base, "_id": USER6_ID,
+         "name": "Vikram Singh",   "email": "vikram.singh@gmail.com",
+         "phone": "+919333444555", "password_hash": pwd_context.hash("password123"), "role": "user"},
         {**base, "_id": BHOPAL_OWNER_ID,
          "name": "Rajesh Patel",   "email": "rajesh.patel@business.com",
          "phone": "+919654321098", "password_hash": pwd_context.hash("business123"), "role": "business"},
@@ -616,7 +628,19 @@ def build_reviews(businesses: list) -> list:
         bid = name_to_bid.get(biz_name)
         if not bid:
             continue
-        for i, (user_idx, rating, text) in enumerate(entries):
+        if len(entries) > len(REVIEWER_IDS):
+            raise ValueError(
+                f"{biz_name} has {len(entries)} reviews but only {len(REVIEWER_IDS)} reviewers exist -- "
+                "add reviewers or trim reviews (reviews are unique per (business_id, user_id))"
+            )
+        used = set()
+        for i, (preferred_idx, rating, text) in enumerate(entries):
+            # Keep the listed reviewer unless they've already reviewed this
+            # business; then fall back to the first reviewer who hasn't.
+            user_idx = preferred_idx if preferred_idx not in used else next(
+                idx for idx in range(len(REVIEWER_IDS)) if idx not in used
+            )
+            used.add(user_idx)
             docs.append({
                 "_id": oid(),
                 "business_id": bid,
@@ -1153,6 +1177,8 @@ async def main():
         ("Regular User",       "+919543210987", "password123"),
         ("Regular User",       "+919111222333", "password123"),
         ("Regular User",       "+919444555666", "password123"),
+        ("Regular User",       "+919222333444", "password123"),
+        ("Regular User",       "+919333444555", "password123"),
         ("Business Owner (BPL)","+919654321098","business123"),
         ("Business Owner (Pune)","+918765432109","business456"),
         ("Admin",              "+910000000000", "admin123"),
