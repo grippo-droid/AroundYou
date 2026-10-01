@@ -4,11 +4,15 @@ import { Search, ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { categories } from "@/services/mockData";
+import { SEMANTIC_QUERY_MAX_LENGTH } from "@/services/api";
+import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
 const Index = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  // "Describe what you need" — sends the query to Explore in smart (semantic) mode
+  const [smartSearch, setSmartSearch] = useState(false);
 
   return (
     <main>
@@ -78,16 +82,24 @@ const Index = () => {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                if (search.trim()) navigate(`/explore?search=${encodeURIComponent(search)}`);
+                if (search.trim()) {
+                  const mode = smartSearch ? "&mode=smart" : "";
+                  navigate(`/explore?search=${encodeURIComponent(search)}${mode}`);
+                }
               }}
               className="flex gap-2 max-w-lg mx-auto"
             >
               <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                {smartSearch ? (
+                  <Sparkles className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
+                ) : (
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                )}
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search cafes, salons, medicals near you"
+                  placeholder={smartSearch ? "e.g. quiet cafe to work from" : "Search cafes, salons, medicals near you"}
+                  maxLength={smartSearch ? SEMANTIC_QUERY_MAX_LENGTH : undefined}
                   className="pl-10 h-12 bg-card border shadow-md text-base rounded-xl focus-visible:ring-primary/40"
                 />
               </div>
@@ -95,6 +107,23 @@ const Index = () => {
                 Search
               </Button>
             </form>
+
+            <div className="flex justify-center mt-3">
+              <button
+                type="button"
+                aria-pressed={smartSearch}
+                onClick={() => setSmartSearch((s) => !s)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                  smartSearch
+                    ? "border-primary/30 bg-primary/10 text-primary"
+                    : "bg-card/60 text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Describe what you need
+              </button>
+            </div>
 
 
           </motion.div>

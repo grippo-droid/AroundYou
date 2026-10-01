@@ -1,3 +1,4 @@
+import { isAxiosError } from "axios";
 import { apiClient } from "@/lib/api_client";
 import type { Business, BusinessCategory, Review, Post, Job, ChatThread, Deal } from "@/types";
 import type { Business as ApiBusiness, ApiResponse } from "@/types/api";
@@ -200,6 +201,47 @@ export async function getBusinesses(params?: {
     total: d?.total ?? 0,
     hasMore: d?.has_more ?? false,
   };
+}
+
+// Mirrors MAX_SEMANTIC_QUERY_LENGTH in backend/app/routes/businesses.py.
+export const SEMANTIC_QUERY_MAX_LENGTH = 300;
+
+// Generous on purpose: a sleeping Render instance takes 30–60 s to wake, and
+// the first query after a restart also loads the embedding model (~14 s).
+const SEMANTIC_SEARCH_TIMEOUT_MS = 60_000;
+
+export interface SemanticSearchResult {
+  businesses: Business[];
+  /** True when results came from keyword search because smart search was unavailable. */
+  degraded: boolean;
+}
+
+export async function searchBusinessesSemantic(
+  q: string,
+  opts: { limit?: number; signal?: AbortSignal } = {}
+): Promise<SemanticSearchResult> {
+  try {
+    const response = await apiClient.get<
+      ApiResponse<{ businesses: ApiBusRaw[]; degraded_to_keyword_search: boolean }>
+    >("/businesses/search/semantic", {
+      params: { q, limit: opts.limit },
+      signal: opts.signal,
+      timeout: SEMANTIC_SEARCH_TIMEOUT_MS,
+    });
+    const d = response.data.data;
+    return {
+      businesses: (d?.businesses || []).map(mapApiBusinessToBusiness),
+      degraded: d?.degraded_to_keyword_search ?? false,
+    };
+  } catch (err) {
+    // A backend without the semantic endpoint answers 404 -- treat that the
+    // same as the server's own fallback, so the frontend can ship first.
+    if (isAxiosError(err) && err.response?.status === 404) {
+      const { businesses } = await getBusinesses({ search: q, limit: opts.limit ?? 12 });
+      return { businesses, degraded: true };
+    }
+    throw err;
+  }
 }
 
 export async function getBusinessById(id: string): Promise<Business | undefined> {
