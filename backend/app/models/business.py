@@ -33,14 +33,18 @@ class BusinessModel(BaseModel):
     followers: int = 0
     views: int = 0
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    # Semantic search -- never exposed via BusinessResponse/BusinessBase.
-    # Excluded by projection in every general-purpose read in business_service.py;
-    # only semantic_search() and the backfill script touch this field.
-    embedding: Optional[List[float]] = None
-    embedding_updated_at: Optional[datetime] = None
+    # Semantic search fields. exclude=True keeps them out of model_dump() and
+    # therefore out of every API response: routes return
+    # ResponseModel.success(data=model), a JSONResponse that bypasses FastAPI's
+    # response_model filtering, so BusinessResponse alone would not hide them.
+    # They're also projected out of general-purpose reads in business_service.py;
+    # only semantic_search() and the backfill script touch the raw embedding.
+    embedding: Optional[List[float]] = Field(default=None, exclude=True)
+    embedding_updated_at: Optional[datetime] = Field(default=None, exclude=True)
     # Transient, populated only on semantic_search() results ($addFields in
-    # the aggregation) -- never persisted, always None from a plain read.
-    similarity_score: Optional[float] = None
+    # the aggregation) -- never persisted. The semantic search route adds it
+    # to its response explicitly.
+    similarity_score: Optional[float] = Field(default=None, exclude=True)
 
     class Config:
         populate_by_name = True

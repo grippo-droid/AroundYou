@@ -1,5 +1,6 @@
 """
-Semantic search: relevance cutoff, response shape, and keyword fallback.
+Semantic search: relevance cutoff, response shape, keyword fallback, and the
+regression that business responses never expose embedding fields.
 
 No model or Atlas needed -- BusinessService.semantic_search is stubbed where
 the route is exercised; the fallback path runs against the local test DB.
@@ -7,8 +8,11 @@ the route is exercised; the fallback path runs against the local test DB.
 
 from bson import ObjectId
 
+from app.config.database import get_database
 from app.models.business import BusinessModel
 from app.services.business_service import BusinessService, apply_score_cutoff
+
+EMBEDDING_KEYS = ("embedding", "embedding_updated_at")
 
 
 def _biz(name: str, score: float) -> BusinessModel:
@@ -43,7 +47,7 @@ def test_cutoff_handles_empty_input():
 
 # ── GET /businesses/search/semantic ────────────────────────────────────────────
 
-async def test_semantic_response_includes_ranked_results_and_score(client, monkeypatch):
+async def test_semantic_response_includes_score_but_not_embedding(client, monkeypatch):
     async def fake_search(query, limit=12):
         return [_biz("Best Cafe", 0.75), _biz("Other Cafe", 0.71)]
 
@@ -55,7 +59,9 @@ async def test_semantic_response_includes_ranked_results_and_score(client, monke
     assert data["degraded_to_keyword_search"] is False
     assert [b["name"] for b in data["businesses"]] == ["Best Cafe", "Other Cafe"]
     assert data["businesses"][0]["similarity_score"] == 0.75
-    assert all(isinstance(b["_id"], str) for b in data["businesses"])
+    for b in data["businesses"]:
+        assert isinstance(b["_id"], str)
+        assert not any(k in b for k in EMBEDDING_KEYS)
 
 
 async def test_semantic_falls_back_to_keyword_search_when_unavailable(client, monkeypatch, test_business):
@@ -75,3 +81,20 @@ async def test_semantic_rejects_empty_and_overlong_queries(client):
     assert (await client.get("/businesses/search/semantic", params={"q": "   "})).status_code == 400
     too_long = "x" * 301
     assert (await client.get("/businesses/search/semantic", params={"q": too_long})).status_code == 400
+
+
+# ── Leak regression: no endpoint exposes embedding fields ──────────────────────
+
+async def test_business_endpoints_never_expose_embedding_fields(client, test_business):
+    await get_database().businesses.update_one(
+        {"_id": test_business["_id"]}, {"$set": {"embedding": [0.1, 0.2], "embedding_updated_at": None}}
+    )
+
+    single = (await client.get(f"/businesses/{test_business['_id']}")).json()["data"]
+    listed = (await client.get("/businesses/")).json()["data"]["businesses"]
+
+    for b in [single, *listed]:
+        assert not any(k in b for k in (*EMBEDDING_KEYS, "similarity_score"))
+    # Fields the frontend relies on are still present (BusinessResponse would drop these).
+    assert single["verification_status"] is not None
+    assert "is_active" in single

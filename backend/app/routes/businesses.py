@@ -62,7 +62,12 @@ async def semantic_search(q: str, limit: int = 12):
             data={"businesses": fallback["businesses"], "degraded_to_keyword_search": True}
         )
 
-    return ResponseModel.success(data={"businesses": results, "degraded_to_keyword_search": False})
+    # similarity_score is excluded from BusinessModel serialization by
+    # default (it's None everywhere else), so add it back explicitly here.
+    businesses = [
+        {**b.model_dump(by_alias=True), "similarity_score": b.similarity_score} for b in results
+    ]
+    return ResponseModel.success(data={"businesses": businesses, "degraded_to_keyword_search": False})
 
 @router.get("/{business_id}/stats")
 async def get_business_stats(
