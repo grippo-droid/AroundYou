@@ -33,6 +33,37 @@ async def get_my_businesses(
     businesses = await BusinessService.get_my_businesses(str(current_user.id))
     return ResponseModel.success(data=businesses)
 
+# Cheap cost-control guardrails -- NOT rate limiting. This app has no
+# rate-limiting infrastructure anywhere yet (a pre-existing gap, not
+# specific to this endpoint); real per-IP/per-user request throttling is
+# out of scope here and would need its own dedicated piece of work. These
+# two caps just bound the worst-case cost/size of a single request.
+MAX_SEMANTIC_QUERY_LENGTH = 300
+MAX_SEMANTIC_SEARCH_LIMIT = 50
+
+@router.get("/search/semantic")
+async def semantic_search(q: str, limit: int = 12):
+    query = q.strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+    if len(query) > MAX_SEMANTIC_QUERY_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Query too long (max {MAX_SEMANTIC_QUERY_LENGTH} characters)",
+        )
+    limit = max(1, min(limit, MAX_SEMANTIC_SEARCH_LIMIT))
+
+    results = await BusinessService.semantic_search(query, limit)
+    if results is None:
+        # Embedding or the vector search query itself failed -- degrade to
+        # the existing keyword search rather than erroring the request.
+        fallback = await BusinessService.get_businesses(search=query, limit=limit)
+        return ResponseModel.success(
+            data={"businesses": fallback["businesses"], "degraded_to_keyword_search": True}
+        )
+
+    return ResponseModel.success(data={"businesses": results, "degraded_to_keyword_search": False})
+
 @router.get("/{business_id}/stats")
 async def get_business_stats(
     business_id: str,

@@ -33,6 +33,14 @@ class BusinessModel(BaseModel):
     followers: int = 0
     views: int = 0
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    # Semantic search -- never exposed via BusinessResponse/BusinessBase.
+    # Excluded by projection in every general-purpose read in business_service.py;
+    # only semantic_search() and the backfill script touch this field.
+    embedding: Optional[List[float]] = None
+    embedding_updated_at: Optional[datetime] = None
+    # Transient, populated only on semantic_search() results ($addFields in
+    # the aggregation) -- never persisted, always None from a plain read.
+    similarity_score: Optional[float] = None
 
     class Config:
         populate_by_name = True

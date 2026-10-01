@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from typing import List, Optional
 from datetime import datetime, timedelta, date
 from bson import ObjectId
@@ -6,6 +7,52 @@ from app.config.database import get_database
 from app.models.business import BusinessModel
 from app.models.user import UserModel
 from app.schemas.business import BusinessCreate, BusinessUpdate
+from app.services import ai_service
+
+logger = logging.getLogger(__name__)
+
+# Atlas Vector Search index name -- must match the index created by
+# scripts/create_vector_search_index.py. Not a secret, so it's a plain
+# constant rather than an env var; kept here since it's business-domain-specific.
+VECTOR_INDEX_NAME = "business_embedding_index"
+
+# Excluded from every general-purpose read below -- embedding is a large
+# float array that no API response should ever include. Only
+# semantic_search() (via its own $project) and the backfill script touch
+# the raw field.
+_EMBEDDING_PROJECTION = {"embedding": 0, "embedding_updated_at": 0}
+
+# Fields whose change should trigger re-embedding on update.
+_EMBEDDED_FIELDS = ("name", "category", "description", "services")
+
+# Relevance cutoff for semantic search. Vector search always returns `limit`
+# nearest neighbours, so without a cutoff the tail is unrelated filler. A
+# result is kept only if it clears an absolute floor AND is within a gap of
+# the best match -- neither alone works: strong queries spread widely
+# (0.84 then 0.70), while weak-but-correct matches sit around 0.63.
+# Calibrated against all-MiniLM-L6-v2 (Atlas cosine score, 0..1) on the 25
+# seed businesses with 16 queries: obvious queries return exactly their
+# category, unrelated ones ("plumber", "asdfgh") return nothing. Re-tune
+# if EMBEDDING_MODEL changes -- scores aren't comparable across models.
+SEMANTIC_MIN_SCORE = 0.62
+SEMANTIC_MAX_GAP_FROM_TOP = 0.08
+
+
+def apply_score_cutoff(results: List[BusinessModel]) -> List[BusinessModel]:
+    """Drop low-relevance results. Expects results sorted best-first."""
+    if not results:
+        return results
+    top = results[0].similarity_score or 0.0
+    floor = max(SEMANTIC_MIN_SCORE, top - SEMANTIC_MAX_GAP_FROM_TOP)
+    return [b for b in results if (b.similarity_score or 0.0) >= floor]
+
+
+def build_embed_text(name: str, category: str, description: str, services: Optional[List[str]]) -> str:
+    parts = [name, category, description]
+    if services:
+        parts.append(", ".join(services))
+    return " — ".join(p for p in parts if p)
+
 
 class BusinessService:
     @staticmethod
@@ -17,7 +64,19 @@ class BusinessService:
             verification_status="pending",
             is_verified=False,
         )
-        result = await db.businesses.insert_one(new_business.model_dump(by_alias=True, exclude={"id"}))
+        insert_doc = new_business.model_dump(by_alias=True, exclude={"id"})
+
+        embed_text = build_embed_text(
+            new_business.name, new_business.category, new_business.description, new_business.services
+        )
+        embedding = await ai_service.embed_text(embed_text)
+        if embedding is not None:
+            insert_doc["embedding"] = embedding
+            insert_doc["embedding_updated_at"] = datetime.utcnow()
+        else:
+            logger.warning("Business created without embedding (owner_id=%s) -- will need backfill", owner_id)
+
+        result = await db.businesses.insert_one(insert_doc)
         new_business.id = result.inserted_id
         return new_business
 
@@ -34,7 +93,9 @@ class BusinessService:
                 {"category": {"$regex": search, "$options": "i"}}
             ]
 
-        cursor = db.businesses.find(query).sort([("is_verified", -1), ("created_at", -1), ("_id", -1)]).skip(skip).limit(limit)
+        cursor = db.businesses.find(query, _EMBEDDING_PROJECTION).sort(
+            [("is_verified", -1), ("created_at", -1), ("_id", -1)]
+        ).skip(skip).limit(limit)
         raw, total = await asyncio.gather(
             cursor.to_list(length=limit),
             db.businesses.count_documents(query),
@@ -47,11 +108,51 @@ class BusinessService:
         }
 
     @staticmethod
+    async def semantic_search(query: str, limit: int = 12) -> Optional[List[BusinessModel]]:
+        """
+        Natural-language business search via Atlas Vector Search, filtered by
+        apply_score_cutoff(), so it may return fewer than `limit` results.
+        Returns None (distinct from an empty list, which means "no matches")
+        if the query couldn't be embedded -- callers should fall back to
+        keyword search in that case rather than erroring out.
+
+        Requires an Atlas cluster with the `business_embedding_index` index
+        (see scripts/create_vector_search_index.py) -- not available on
+        self-hosted/local MongoDB.
+        """
+        query_embedding = await ai_service.embed_text(query, timeout=5.0)
+        if query_embedding is None:
+            return None
+
+        db = get_database()
+        pipeline = [
+            {
+                "$vectorSearch": {
+                    "index": VECTOR_INDEX_NAME,
+                    "path": "embedding",
+                    "queryVector": query_embedding,
+                    "numCandidates": limit * 10,
+                    "limit": limit,
+                    "filter": {"is_active": {"$ne": False}},
+                }
+            },
+            {"$addFields": {"similarity_score": {"$meta": "vectorSearchScore"}}},
+            {"$project": _EMBEDDING_PROJECTION},
+        ]
+        try:
+            raw = await db.businesses.aggregate(pipeline).to_list(length=limit)
+        except Exception:
+            logger.error("Vector search query failed", exc_info=True)
+            return None
+
+        return apply_score_cutoff([BusinessModel(**b) for b in raw])
+
+    @staticmethod
     async def get_business_by_id(business_id: str) -> Optional[BusinessModel]:
         db = get_database()
         if not ObjectId.is_valid(business_id):
             return None
-        doc = await db.businesses.find_one({"_id": ObjectId(business_id)})
+        doc = await db.businesses.find_one({"_id": ObjectId(business_id)}, _EMBEDDING_PROJECTION)
         if doc:
             return BusinessModel(**doc)
         return None
@@ -59,7 +160,7 @@ class BusinessService:
     @staticmethod
     async def get_my_businesses(owner_id: str) -> List[BusinessModel]:
         db = get_database()
-        cursor = db.businesses.find({"owner_id": owner_id})
+        cursor = db.businesses.find({"owner_id": owner_id}, _EMBEDDING_PROJECTION)
         businesses = await cursor.to_list(length=100)
         return [BusinessModel(**b) for b in businesses]
     @staticmethod
@@ -89,14 +190,29 @@ class BusinessService:
             {"_id": ObjectId(business_id), "owner_id": owner_id},
             {"$set": update_data}
         )
-        
+
         if result.modified_count == 0:
             # Check if it was a match but no modification (still success) or no match
             matched = await db.businesses.find_one({"_id": ObjectId(business_id), "owner_id": owner_id})
             if not matched:
                 return None
-                
-        return await BusinessService.get_business_by_id(business_id)
+
+        if any(f in update_data for f in _EMBEDDED_FIELDS):
+            current = await db.businesses.find_one({"_id": ObjectId(business_id)})
+            embed_text = build_embed_text(
+                current.get("name", ""), current.get("category", ""),
+                current.get("description", ""), current.get("services"),
+            )
+            embedding = await ai_service.embed_text(embed_text)
+            if embedding is not None:
+                await db.businesses.update_one(
+                    {"_id": ObjectId(business_id)},
+                    {"$set": {"embedding": embedding, "embedding_updated_at": datetime.utcnow()}},
+                )
+            else:
+                logger.warning(
+                    "Business %s updated without refreshing embedding -- will need backfill", business_id
+                )
 
         return await BusinessService.get_business_by_id(business_id)
 

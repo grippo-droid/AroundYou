@@ -47,7 +47,7 @@ You need **three PowerShell terminals** running simultaneously.
 
 - Python 3.11+
 - Node.js 18+ and npm
-- MongoDB 8.x running locally
+- MongoDB 8.x running locally (or a MongoDB Atlas cluster — required if you want to develop/test semantic search, see [Semantic Search Setup](#semantic-search-setup-optional))
 
 ### 1 — Start MongoDB
 
@@ -165,6 +165,68 @@ Set `SMS_PROVIDER=console` in development (OTPs print to the server log). Switch
 | `CLOUDINARY_API_SECRET` | Cloudinary API secret |
 
 The full variable reference is in `backend/.env.example`.
+
+---
+
+## Semantic Search Setup (Optional)
+
+Natural-language business search (`GET /businesses/search/semantic`) uses MongoDB **Atlas Vector Search**, which is an Atlas-exclusive feature — it does not exist on self-hosted/local MongoDB, even Enterprise. Everything else in this project (including the rest of business search) works fine on plain local MongoDB; this section only matters if you want to develop or test semantic search itself.
+
+### 1 — Point `MONGO_URI` at an Atlas cluster
+
+You already have a production Atlas cluster. The simplest option is to reuse it with a **separate database** for local dev, rather than creating a new cluster:
+
+```
+MONGO_URI=mongodb+srv://<same user>:<same password>@<same cluster host>/around_you_dev_db
+DB_NAME=around_you_dev_db
+```
+
+This costs nothing extra and keeps dev data fully isolated from `around_you_db` (prod) — Atlas Vector Search indexes are created per-database, so a separate database gets its own index with zero conflict.
+
+If you'd rather have a fully separate cluster (e.g. to avoid any shared resource limits with prod):
+1. Go to [cloud.mongodb.com](https://cloud.mongodb.com) → **Create a new cluster** → select the **M0 Free** tier (no card required beyond initial account setup).
+2. Under **Database Access**, create a user with a password.
+3. Under **Network Access**, add your current IP (or `0.0.0.0/0` for simplicity in local dev only — never do this for prod).
+4. Copy the connection string from **Connect → Drivers**, and use it as `MONGO_URI` above.
+
+### 2 — Create the Vector Search index
+
+One-time, per database (once for your Atlas dev database, once for prod when you're ready):
+
+```powershell
+cd backend
+$env:MONGO_URI = "<your Atlas connection string>"
+$env:DB_NAME = "around_you_dev_db"
+.\venv\Scripts\python.exe scripts\create_vector_search_index.py
+```
+
+Index creation is asynchronous on Atlas's side — it can take a few seconds to a couple of minutes to finish building. Re-run the script to check status (it reports "already exists" once the index is live). If the index already exists with a different dimension (e.g. after changing `EMBEDDING_MODEL`), the script updates it in place — then re-run the backfill with `--force`.
+
+### 3 — Embedding model (local, no API key)
+
+Embeddings are generated in-process with [sentence-transformers](https://www.sbert.net/) using `all-MiniLM-L6-v2` (384 dimensions). There is no API key and no per-request cost. The model (~90 MB) is downloaded from Hugging Face on first use and cached under `~/.cache/huggingface`. If the model fails to load, embedding is skipped (logged, never fatal) and semantic search falls back to keyword search.
+
+**Footprint tradeoff** (measured on Windows, CPU-only torch):
+
+| | httpx-only (hosted API) | Local model |
+|---|---|---|
+| Installed packages | ~82 MB | ~1.1 GB (torch, transformers, scipy, scikit-learn, …) |
+| Server memory | ~75 MB | ~535 MB once the model is loaded |
+| First semantic request | network call | ~14 s cold (model load), then ~60–90 ms |
+
+The model is loaded lazily on the first embed, so the app and the test suite don't pay this cost until semantic search or a business create/update actually runs. Note that ~535 MB exceeds Render's free-tier 512 MB memory limit.
+
+### 4 — Backfill existing businesses
+
+Businesses created before this feature won't have an embedding yet:
+
+```powershell
+cd backend
+.\venv\Scripts\python.exe scripts\backfill_embeddings.py          # dry run -- shows counts, writes nothing
+.\venv\Scripts\python.exe scripts\backfill_embeddings.py --apply  # actually generates and writes embeddings
+```
+
+Same env-var pattern applies for running this against production — see the script's own docstring for details.
 
 ---
 

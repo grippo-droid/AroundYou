@@ -38,6 +38,13 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY: str = ""
     CLOUDINARY_API_SECRET: str = ""
 
+    # ── AI / Semantic Search ─────────────────────────────────────────────────
+    # Local sentence-transformers model (downloaded from Hugging Face on first
+    # use, then cached). EMBEDDING_DIMENSIONS must match the model's output
+    # size and the Atlas vector index (scripts/create_vector_search_index.py).
+    EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
+    EMBEDDING_DIMENSIONS: int = 384
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
