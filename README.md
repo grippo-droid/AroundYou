@@ -204,17 +204,27 @@ Index creation is asynchronous on Atlas's side — it can take a few seconds to 
 
 ### 3 — Embedding model (local, no API key)
 
-Embeddings are generated in-process with [sentence-transformers](https://www.sbert.net/) using `all-MiniLM-L6-v2` (384 dimensions). There is no API key and no per-request cost. The model (~90 MB) is downloaded from Hugging Face on first use and cached under `~/.cache/huggingface`. If the model fails to load, embedding is skipped (logged, never fatal) and semantic search falls back to keyword search.
+Embeddings are generated in-process with `all-MiniLM-L6-v2` (384 dimensions), run through [ONNX Runtime](https://onnxruntime.ai/) using the ONNX export published in the model's own Hugging Face repo — no torch. There is no API key and no per-request cost. The model files (~90 MB) are pinned to a specific repo revision so vectors match those already stored in Atlas.
 
-**Footprint tradeoff** (measured on Windows, CPU-only torch):
+Download the model once (Render does this in its build command):
 
-| | httpx-only (hosted API) | Local model |
-|---|---|---|
-| Installed packages | ~82 MB | ~1.1 GB (torch, transformers, scipy, scikit-learn, …) |
-| Server memory | ~75 MB | ~535 MB once the model is loaded |
-| First semantic request | network call | ~14 s cold (model load), then ~60–90 ms |
+```powershell
+cd backend
+.\venv\Scripts\python.exe scripts\download_embedding_model.py
+```
 
-The model is loaded lazily on the first embed, so the app and the test suite don't pay this cost until semantic search or a business create/update actually runs. Note that ~535 MB exceeds Render's free-tier 512 MB memory limit.
+If you skip this, the files are downloaded automatically on first use. The server loads the model in the background at startup, so the first search doesn't pay for it. If the model fails to load, embedding is skipped (logged, never fatal) and semantic search falls back to keyword search.
+
+**Footprint** (measured on Linux, Python 3.11, real app imported, after 16 searches + a 25-business backfill):
+
+| | App without embeddings | ONNX Runtime (current) | torch + sentence-transformers (previous) |
+|---|---|---|---|
+| Installed packages | ~82 MB | ~194 MB | ~1.2 GB |
+| Peak server memory | ~64–78 MB | **~248 MB** | ~579–591 MB |
+| Model load (startup warm-up) | — | ~0.7 s | ~11–13 s |
+| Warm query embedding (1 thread) | — | ~5 ms | ~8.5 ms |
+
+The ONNX setup fits Render's free-tier 512 MB with ~260 MB to spare; the torch setup did not. Its vectors are identical to the torch implementation's (`tests/test_ai_service.py` checks this). Expect slower per-query embedding on Render's fractional CPU than the timings above.
 
 ### 4 — Backfill existing businesses
 

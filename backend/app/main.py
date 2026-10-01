@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,14 +12,19 @@ logger = logging.getLogger(__name__)
 from app.config.settings import settings
 from app.config.database import db
 from app.routes import auth, users, businesses, posts, jobs, messages, reviews, bookings, uploads, deals, applications, notifications, follows, admin, reports
+from app.services import ai_service
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     db.connect()
     await db.ensure_indexes()
+    # Load the embedding model in the background (~1-2 s) so the first semantic
+    # search doesn't pay for it -- not awaited, so the app starts serving at once.
+    app.state.embedding_warmup = asyncio.create_task(ai_service.warm_up())
     yield
     # Shutdown
+    app.state.embedding_warmup.cancel()
     db.close()
 
 app = FastAPI(

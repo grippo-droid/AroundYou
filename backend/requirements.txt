@@ -12,9 +12,10 @@ email-validator>=2.1.0
 httpx>=0.27.0
 cloudinary>=1.40.0
 
-# Local embeddings for semantic search. CPU-only torch wheel: the default
-# PyPI torch on Linux bundles CUDA libraries (several GB) that we never use.
-# Even CPU-only, these add ~1 GB to the install -- see README.
---extra-index-url https://download.pytorch.org/whl/cpu
-torch>=2.2.0
-sentence-transformers>=3.0.0
+# Local embeddings for semantic search, run with ONNX Runtime instead of
+# torch (~110 MB installed vs ~1.1 GB; ~248 MB peak server memory vs ~585 MB
+# on Linux -- see README). huggingface_hub only fetches the model files.
+onnxruntime>=1.17.0
+tokenizers>=0.15.0
+numpy>=1.26.0
+huggingface_hub>=0.23.0

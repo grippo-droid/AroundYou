@@ -7,3 +7,5 @@ env/
 venv/
 .idea/
 .vscode/
+# Embedding model files -- downloaded by scripts/download_embedding_model.py
+models/

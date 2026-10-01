@@ -39,10 +39,16 @@ class Settings(BaseSettings):
     CLOUDINARY_API_SECRET: str = ""
 
     # ── AI / Semantic Search ─────────────────────────────────────────────────
-    # Local sentence-transformers model (downloaded from Hugging Face on first
-    # use, then cached). EMBEDDING_DIMENSIONS must match the model's output
-    # size and the Atlas vector index (scripts/create_vector_search_index.py).
+    # Local embedding model, run with ONNX Runtime (no torch). Files come from
+    # the model's Hugging Face repo, pinned to a revision so vectors stay
+    # identical to those already stored in Atlas. They're fetched at build
+    # time by scripts/download_embedding_model.py (or on first use if missing).
+    # EMBEDDING_DIMENSIONS must match the model's output size and the Atlas
+    # vector index (scripts/create_vector_search_index.py).
     EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
+    EMBEDDING_MODEL_REVISION: str = "1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
+    # Relative paths resolve against backend/.
+    EMBEDDING_MODEL_DIR: str = "models/all-MiniLM-L6-v2"
     EMBEDDING_DIMENSIONS: int = 384
 
     model_config = SettingsConfigDict(
