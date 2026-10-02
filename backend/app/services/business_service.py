@@ -113,8 +113,9 @@ class BusinessService:
         Natural-language business search via Atlas Vector Search, filtered by
         apply_score_cutoff(), so it may return fewer than `limit` results.
         Returns None (distinct from an empty list, which means "no matches")
-        if the query couldn't be embedded -- callers should fall back to
-        keyword search in that case rather than erroring out.
+        if smart search is unavailable -- the query couldn't be embedded, the
+        vector query failed, or it returned no candidates at all -- and
+        callers should fall back to keyword search rather than erroring out.
 
         Requires an Atlas cluster with the `business_embedding_index` index
         (see scripts/create_vector_search_index.py) -- not available on
@@ -145,6 +146,22 @@ class BusinessService:
             logger.error("Vector search query failed", exc_info=True)
             return None
 
+        if not raw:
+            # $vectorSearch ranks every embedded business, so with a working
+            # index it returns up to `limit` candidates *before* the relevance
+            # cutoff. Zero candidates means it isn't working -- e.g. the index
+            # doesn't exist or no business has an embedding yet (Atlas returns
+            # an empty result rather than an error for a missing index) -- not
+            # that nothing matched. Treat it as unavailable so callers fall
+            # back to keyword search and say so, instead of a silent "no matches".
+            logger.warning(
+                "Vector search returned no candidates (index '%s' missing or no embedded businesses?) "
+                "-- falling back to keyword search",
+                VECTOR_INDEX_NAME,
+            )
+            return None
+
+        # An empty list from here on is a genuine "no good matches".
         return apply_score_cutoff([BusinessModel(**b) for b in raw])
 
     @staticmethod
